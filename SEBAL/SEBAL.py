@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-pySEBAL_3.3.6
+pySEBAL_3.3.7
 
 @author: Tim Hessels, Jonna van Opstal, Patricia Trambauer, Wim Bastiaanssen, Mohamed Faouzi Smiej, Yasir Mohamed, and Ahmed Er-Raji
          UNESCO-IHE
@@ -58,7 +58,44 @@ def SEBALcode(number,inputExcel):
     print 'output_folder = %s' %str(output_folder)	
     print 'Image_Type = %s' %int(Image_Type)	
     print '................ Input Maps LS or PROBA-V and VIIRS............... '				
+
+    if Image_Type == 3:		
+
+        # Open the VIIRS_PROBAV_Input sheet					
+        ws = wb['MODIS_Input']
+        
+        # Extract the name of the thermal and quality VIIRS image from the excel file	
+        Name_MODIS_Image_Ref = str(ws['B%d' %number].value)                #reflectance
+        Name_MODIS_Image_NDVI = str(ws['D%d' %number].value)               #ndvi
+        Name_MODIS_Image_LST = str(ws['C%d' %number].value)                #land surface temperature
  
+        # Create complete path to data     
+        src_FileName_LST = os.path.join(input_folder, '%s.hdf' %Name_MODIS_Image_LST)                            
+        src_FileName_NDVI = os.path.join(input_folder, '%s.hdf' %Name_MODIS_Image_NDVI)                                       
+        src_FileName_Ref = os.path.join(input_folder, '%s.hdf' %Name_MODIS_Image_Ref)  
+    
+        # Calibartion constants Hot Pixels extracted from the excel file 
+        Hot_Pixel_Constant = float(ws['E%d' %number].value)          # Hot Pixel Value = Mean_Hot_Pixel + Hot_Pixel_Constant * Std_Hot_Pixel (only for VIIRS images)
+        
+        # Calibartion constants Cold Pixels from the excel file 					
+        Cold_Pixel_Constant = float(ws['F%d' %number].value)         # Cold Pixel Value = Mean_Cold_Pixel + Cold_Pixel_Constant * Std_Cold_Pixel (only for VIIRS images)
+        
+        # Pixel size of the model
+        pixel_spacing = int(250) 	
+ 		
+        # UTM Zone of the end results					
+        UTM_Zone = float(ws['G%d' %number].value)
+	 						
+        # Print data used from sheet General_Input
+        print 'MODIS Input:'			
+        print 'Path to MODIS LST image = %s' %str(Name_MODIS_Image_LST)
+        print 'Path to MODIS NDVI image = %s' %str(Name_MODIS_Image_NDVI)
+        print 'Path to MODIS Reflectance image = %s' %str(Name_MODIS_Image_Ref)
+        print 'Hot Pixel Constant VIIRS = %s' %(Hot_Pixel_Constant)	
+        print 'Cold Pixel Constant VIIRS = %s' %(Cold_Pixel_Constant)	
+        print 'UTM Zone = %s' %(UTM_Zone)
+        print 'Pixel size model = %s (Meters)' %(pixel_spacing)	 
+        
     if Image_Type == 2:		
        
         # Open the VIIRS_PROBAV_Input sheet					
@@ -101,6 +138,7 @@ def SEBALcode(number,inputExcel):
         Name_Landsat_Image = str(ws['B%d' %number].value)    # From glovis.usgs.gov
         Landsat_nr = int(ws['C%d' %number].value)            # Type of Landsat (LS) image used (LS5, LS7, or LS8)
         Bands_thermal = int(ws['D%d' %number].value)         # Number of LS bands to use to retrieve land surface 
+                                    
                                                              # temperature: 1 = Band 6 for LS_5 & 7, Band 10 for LS_8 (optional)
         # Calibartion constants Hot Pixels from the excel file 
         Hot_Pixel_Constant = float(ws['E%d' %number].value)          # Hot Pixel Value = Mean_Hot_Pixel + Hot_Pixel_Constant * Std_Hot_Pixel (only for Landsat images)
@@ -568,7 +606,22 @@ def SEBALcode(number,inputExcel):
         res2 = '%sm' %int(pixel_spacing)
         res3 = '30m'
 
+    if Image_Type is 3:
 
+	     #Get time from the MODIS dataset name (IMPORTANT TO KEEP THE TEMPLATE OF THE MODIS NAME CORRECT example: MOD13Q1.A2008129.h18v05.006.2015175090913.hdf)
+        Total_Day_MODIS = Name_MODIS_Image_LST.split('.')[-4][1:]
+ 
+        # Get the information out of the VIIRS name
+        year = int(Total_Day_MODIS[0:4])
+        DOY = day = int(Total_Day_MODIS[4:7])
+ 
+        # define the kind of sensor and resolution of the sensor	
+        sensor1 = 'MODIS'
+        sensor2 = 'MODIS'
+        res1 = '1000m'
+        res2 = '250m'
+        res3 = '500m'        
+        
     # ------------------------------------------------------------------------
     # Define the output maps names
     proyDEM_fileName = os.path.join(output_folder, 'Output_radiation_balance', 'proy_DEM_%s.tif' %res2)
@@ -646,7 +699,16 @@ def SEBALcode(number,inputExcel):
         proyVIIRS_Cloud_Mask_fileName = os.path.join(output_folder, 'Output_cloud_masked', '%s_cloud_mask_%s_%s_%s.tif' %(sensor2, res2, year, DOY))
         proyDEM_fileName_375 = os.path.join(output_folder, 'Output_temporary', 'proy_DEM_375.tif')
         proyDEM_fileName_400 = os.path.join(output_folder, 'Output_temporary', 'proy_DEM_400.tif')
-     
+ 
+   # Names for PROBA-V and VIIRS option
+    if Image_Type is 3:		
+        proyMODIS_QC_fileName = os.path.join(output_folder, 'Output_MODIS', '%s_QC_proy_%s_%s_%s.tif' %(sensor2, res2, year, DOY))
+         
+        proyDEM_fileName_1000 = os.path.join(output_folder, 'Output_temporary', 'proy_DEM_1000.tif')
+
+ 
+
+    
     # ------------------------------------------------------------------------
     # ------------------------------------------------------------------------
     # ---   Empty folder with output maps before starting -
@@ -657,8 +719,11 @@ def SEBALcode(number,inputExcel):
     print '---------------------------------------------------------'
     print 'General info: '
     print '  DOY: ', DOY
-    print '  Hour: ', hour
-    print '  Minutes: ', '%0.3f' % minutes
+    
+    if not Image_Type == 3:
+        print '  Hour: ', hour
+        print '  Minutes: ', '%0.3f' % minutes
+        
     print '  UTM_Zone: ', UTM_Zone
     
      
@@ -737,10 +802,14 @@ def SEBALcode(number,inputExcel):
             day += 1
             hour -= 24        
 
+    if Image_Type == 3:        
+
+           hour, minutes = Modis_Time(src_FileName_LST, epsg_to, proyDEM_fileName)
+           
     # Calculation of extraterrestrial solar radiation for slope and aspect   
     Ra_mountain_24, Ra_inst, cos_zn, dr, phi, delta = Calc_Ra_Mountain(lon, DOY, hour, minutes, lon_proy, lat_proy, slope, aspect)  
 
-    if Image_Type == 2:
+    if Image_Type == 2 or Image_Type == 3:
         Sun_elevation = 90 - (np.nanmean(cos_zn) * 180/np.pi) 
  
     # Save files created in module 1
@@ -1780,7 +1849,330 @@ def SEBALcode(number,inputExcel):
         LAI=np.where(QC_Map==1,np.nan,LAI)
         vegt_cover=np.where(QC_Map==1,np.nan,vegt_cover)
         SAVI=np.where(QC_Map==1,np.nan,SAVI)
+
+    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
+    #-------------------------Calculations MODIS -----------------------------
+    
+    if Image_Type == 3:
+ 
+
+        print '---------------------------------------------------------'
+        print '----------------- Calculate Vegetation data -------------'
+        print '---------------------------------------------------------'
+
+        # Bands in PROBAV spectral reflectance
+        # 0 = MS
+        # 1 = BLUE
+        # 2 = NIR
+        # 3 = RED
+        # 4 = SWIR
+      
+        # Check if a NDVI, SAVI, or Surface Albedo dataset is defined. If so use this one instead of the PROBAV otherwise PROBAV
+        ws = wb['Additional_Input']
+        # Check NDVI
+        try:
+            if (ws['B%d' % number].value) is not None:					
+                # Output folder NDVI	defined by the user							
+                ndvi_fileName = os.path.join(output_folder, 'Output_vegetation', 'User_NDVI_%s_%s_%s.tif' %(res2, year, DOY))
+ 
+                # Reproject and reshape users NDVI  
+                NDVI=Reshape_Reproject_Input_data(r'%s' %str(ws['B%d' % number].value),ndvi_fileName, proyDEM_fileName)		 														 
+                NDVI_PROBAV_MAX = np.nanmax(NDVI)
+                NDVI_PROBAV_SD =  np.nanstd(NDVI) 
+                print 'NDVI User max ' , NDVI_PROBAV_MAX
+                print 'NDVI User sd' , NDVI_PROBAV_SD	
+
+                # Create Water mask based on PROBA-V             
+                water_mask = np.zeros((shape_lsc[1], shape_lsc[0])) 
+                water_mask[NDVI<0.0]=1
+ 
+            # if the users NDVI data cannot be reprojected than use the original PROBA-V data as imported into SEBAL		
+            else:
+                # Calculate the NDVI based on MODIS  
+                NDVI = Open_reprojected_hdf(src_FileName_NDVI, 0, epsg_to, 0.0001, proyDEM_fileName)
+
+                NDVI_MODIS_MAX = np.nanmax(NDVI)
+                NDVI_MODIS_SD =  np.nanstd(NDVI) 
+                print 'NDVI MODIS max ' , NDVI_MODIS_MAX
+                print 'NDVI MODIS sd' , NDVI_MODIS_SD
+  
+                # Create Water mask based on MODIS           
+                water_mask = np.zeros((shape_lsc[1], shape_lsc[0])) 
+                water_mask[NDVI < 0]=1
+
+                # Define users NDVI output name																
+                ndvi_fileName = os.path.join(output_folder, 'Output_vegetation', '%s_NDVI_%s_%s_%s.tif' %(sensor1, res2, year, DOY))
+		 													
+		        # Save the PROBA-V NDVI as tif file												
+                save_GeoTiff_proy(lsc, NDVI, ndvi_fileName, shape_lsc, nband=1)
+		 														  
+        except:                
+            assert "Please check the PROBA-V path, was not able to create NDVI"
+												
+
+        # Check SAVI	
+        try:
+            if (ws['C%d' % number].value) is not None:					
+                # Output folder SAVI	defined by the user					
+                savi_fileName = os.path.join(output_folder, 'Output_vegetation', 'User_SAVI_%s_%s_%s.tif' %(res2, year, DOY))
+															
+                # Reproject and reshape users SAVI  															
+                SAVI=Reshape_Reproject_Input_data(r'%s' %str(ws['C%d' % number].value),savi_fileName,proyDEM_fileName)		 					
+
+            # if the users SAVI data cannot be reprojected than use the original MOD11 data as imported into SEBAL													
+            else:
+
+                # Calculate the MOD9 based on MODIS   
+                B1_modis = Open_reprojected_hdf(src_FileName_Ref, 11, epsg_to, 0.0001, proyDEM_fileName)
+
+                # Open and reproject B2            
+                B2_modis = Open_reprojected_hdf(src_FileName_Ref, 12, epsg_to, 0.0001, proyDEM_fileName)
+ 
+                # Calculate SAVI               
+                SAVI = (B2_modis - B1_modis) /(B2_modis + B1_modis + L_SAVI) * (1+L_SAVI)
+                
+                # Define users SAVI output name	
+                savi_fileName = os.path.join(output_folder, 'Output_vegetation', '%s_SAVI_%s_%s_%s.tif' %(sensor1, res2, year, DOY))	
+															
+                # Save the PROBA-V SAVI as tif file															
+                save_GeoTiff_proy(lsc, SAVI, savi_fileName, shape_lsc, nband=1)																  
+        except:
+             assert "Please check the PROBA-V path, was not able to create SAVI"       
+								
+								
+        # Check surface albedo		
+        try:
+            if (ws['D%d' % number].value) is not None:					
+                # Output folder surface albedo						
+                surface_albedo_fileName = os.path.join(output_folder, 'Output_vegetation','User_surface_albedo_%s_%s_%s.tif' %(res2, year, DOY))
+
+                # Reproject and reshape users surface albedo 
+                Surf_albedo=Reshape_Reproject_Input_data(r'%s' %str(ws['D%d' % number].value),surface_albedo_fileName,proyDEM_fileName)		 					
+
+            # if the users surface albedo data cannot be reprojected than use the original PROBA-V data as imported into SEBAL													
+            else:
+                
+                # Calculate the MOD9 based on MODIS   
+                B1_modis = Open_reprojected_hdf(src_FileName_Ref, 11, epsg_to, 0.0001, proyDEM_fileName)
+
+                # Open and reproject B2            
+                B2_modis = Open_reprojected_hdf(src_FileName_Ref, 12, epsg_to, 0.0001, proyDEM_fileName) 
+                
+                # Open and reproject B3   
+                B3_modis = Open_reprojected_hdf(src_FileName_Ref, 13, epsg_to, 0.0001, proyDEM_fileName) 
+
+                # Open and reproject B4            
+                B4_modis = Open_reprojected_hdf(src_FileName_Ref, 14, epsg_to, 0.0001, proyDEM_fileName) 
+
+                # Open and reproject B5            
+                B5_modis = Open_reprojected_hdf(src_FileName_Ref, 15, epsg_to, 0.0001, proyDEM_fileName) 
+
+                # Open and reproject B6            
+                B6_modis = Open_reprojected_hdf(src_FileName_Ref, 16, epsg_to, 0.0001, proyDEM_fileName) 
+
+                # Open and reproject B3            
+                B7_modis = Open_reprojected_hdf(src_FileName_Ref, 17, epsg_to, 0.0001, proyDEM_fileName) 
+
+                # Calc surface albedo within shortwave domain using a weighting function (Tasumi et al 2008)
+                Surf_albedo = 0.215 * B1_modis + 0.215 * B2_modis + 0.242 * B3_modis + 0.129 * B4_modis + 0.101 * B5_modis + 0.062 * B6_modis + 0.036 * B7_modis
+                
+                # Define users surface albedo output name	             
+                surface_albedo_fileName = os.path.join(output_folder, 'Output_vegetation','%s_surface_albedo_%s_%s_%s.tif' %(sensor1, res2, year, DOY))
+
+			   # Save the PROBA-V surface albedo as tif file
+                save_GeoTiff_proy(lsc, Surf_albedo, surface_albedo_fileName, shape_lsc, nband=1)																  
+        except:
+             assert "Please check the PROBA-V path, was not able to create Albedo"       
+
+
+        # Calculate the Fpar, TIR, Nitrogen, Vegetation Cover, LAI and b10_emissivity based on PROBA-V      
+        FPAR, tir_emis, Nitrogen_PROBAV, vegt_cover, LAI, b10_emissivity_PROBAV=Calc_vegt_para(NDVI, SAVI, water_mask, shape_lsc)
+				
+        # Save the paramaters as a geotiff
+        save_GeoTiff_proy(lsc, water_mask, water_mask_fileName, shape_lsc, nband=1)
+        save_GeoTiff_proy(lsc, tir_emis, tir_emissivity_fileName, shape_lsc, nband=1)
+        save_GeoTiff_proy(lsc, Nitrogen_PROBAV, nitrogen_fileName, shape_lsc, nband=1)
+        save_GeoTiff_proy(lsc, vegt_cover, veg_cover_fileName, shape_lsc, nband=1)
+        save_GeoTiff_proy(lsc, LAI, lai_fileName, shape_lsc, nband=1)           
+
+        print '---------------------------------------------------------'
+        print '------------------- Collect MOD9 data -------------------'
+        print '---------------------------------------------------------'
+
+ 
+        # Open Additional_Input sheet in the excel										
+        ws = wb['Additional_Input']
+
+        # end result are reprojected maps of:
+        # 1) 							
+        # 2) 					
+
+        # 1) Get the VIIRS Thermal map 250m
+        # Upscale DEM to 1000m
+        pixel_spacing_upscale=1000
+
+        dest_1000, ulx_dem_1000, lry_dem_1000, lrx_dem_1000, uly_dem_1000, epsg_to = reproject_dataset(
+                    DEM_fileName, pixel_spacing_upscale, UTM_Zone = UTM_Zone)
+                
+        DEM_1000 = dest_1000.GetRasterBand(1).ReadAsArray()
+        Y_raster_size_1000 = dest_1000.RasterYSize				
+        X_raster_size_1000 = dest_1000.RasterXSize
+        shape_1000=([X_raster_size_1000, Y_raster_size_1000])
+						
+        save_GeoTiff_proy(dest_1000, DEM_1000, proyDEM_fileName_1000, shape_1000, nband=1)
+
+        try:	
+            if (ws['E%d' % number].value) is not None:									
+               # Define output folder Thermal VIIRS by the user					
+                proyMODIS_fileName_250 = os.path.join(output_folder, 'Output_MODIS','User_TB_%s_%s_%s.tif' %(res2, year, DOY))
+  
+                # Reshape and reproject the Thermal data given by the user and resample this to a 375m resolution
+                temp_surface_sharpened = Reshape_Reproject_Input_data(r'%s' %str(ws['E%d' % number].value), proyMODIS_fileName_250, proyDEM_fileName)		 					
+ 
+                Thermal_Sharpening_not_needed = 1	
+                
+                # Divide temporal watermask in snow and water mask by using surface temperature
+                Snow_Mask_PROBAV, water_mask, ts_moist_veg_min, NDVI_max, NDVI_std = CalculateSnowWaterMask(NDVI,shape_lsc,water_mask,temp_surface_sharpened)
+
+                MODIS_QC = np.zeros((shape_lsc[1], shape_lsc[0]))
+                MODIS_QC[np.isnan(temp_surface_sharpened)] = 1
+
+            else:
+                
+                # Calculate the MOD9 based on MODIS    
+                n120_surface_temp = Open_reprojected_hdf(src_FileName_LST, 0, epsg_to, 0.02, proyDEM_fileName) 
+              
+                # Define the thermal VIIRS output name
+                proyMODIS_fileName = os.path.join(output_folder, 'Output_MODIS','%s_TB_%s_%s_%s.tif' %(sensor2, res2, year, DOY))
+	 											
+                # Save the thermal VIIRS data 												
+                save_GeoTiff_proy(lsc, n120_surface_temp, proyMODIS_fileName, shape_lsc, nband=1)							
+               
+                Thermal_Sharpening_not_needed = 0
+ 
+                # 2)	Get the MODIS Quality map 1000m	
+									
+                # Calculate the MOD9 based on MODIS   
+                g=gdal.Open(src_FileName_LST, gdal.GA_ReadOnly)
+                
+                MODIS_QC = Open_reprojected_hdf(src_FileName_LST, 1, epsg_to, 1, proyDEM_fileName) 
+                
+                # Define QC 
+                MODIS_QC[np.logical_and(np.logical_and(MODIS_QC==5, MODIS_QC==17), MODIS_QC==21)] = 0
+                MODIS_QC[MODIS_QC != 0] = 1                        
+                
+                # Save the reprojected VIIRS dataset QC
+                save_GeoTiff_proy(lsc, MODIS_QC, proyMODIS_QC_fileName, shape_lsc, nband=1)
+        
+        except:
+             assert "Please check the MODIS11 input path"
+ 
+        # ------ Upscale TIR_Emissivity_PROBAV, cloud mask PROBAV and NDVI for LST calculation at 375m resolution ----
+      
+        if Thermal_Sharpening_not_needed == 0:      
+
+            ##### MODIS brightness temperature to land surface temperature
+                  
+            # Create total VIIRS and PROBA-V cloud mask (100m)       
+            QC_Map=np.zeros((shape_lsc[1], shape_lsc[0]))
+            QC_Map=np.where(MODIS_QC==1,1,0) 
+                    
+            # Conditions for surface temperature (100m)
+            n120_surface_temp=np.where(QC_Map==1,np.nan,n120_surface_temp)
+            n120_surface_temp[n120_surface_temp<273] = np.nan
+                             
+            # Save the surface temperature of the VIIRS in 100m resolution
+            temp_surface_250_fileName_beforeTS = os.path.join(output_folder, 'Output_temporary','%s_%s_surface_temp_before_Thermal_Sharpening_%s_%s_%s.tif' %(sensor1, sensor2, res2, year, DOY))
+            save_GeoTiff_proy(lsc, n120_surface_temp, temp_surface_250_fileName_beforeTS, shape_lsc, nband=1)     												
+     
+            print '---------------------------------------------------------'
+            print '-------------------- Downscale VIIRS --------------------'
+            print '---------------------------------------------------------'
+
+            ################################ Thermal Sharpening #####################################################
+
+            # Upscale VIIRS and PROBA-V to 400m
+            pixel_spacing_upscale = 1000
+
+            dest_1000, ulx_dem_1000, lry_dem_1000, lrx_dem_1000, uly_dem_1000, epsg_to = reproject_dataset(
+                    DEM_fileName, pixel_spacing_upscale, UTM_Zone = UTM_Zone)
+
+            DEM_1000 = dest_1000.GetRasterBand(1).ReadAsArray()
+            Y_raster_size_1000 = dest_1000.RasterYSize				
+            X_raster_size_1000 = dest_1000.RasterXSize
+            shape_1000=([X_raster_size_1000, Y_raster_size_1000])
+						
+            save_GeoTiff_proy(dest_1000, DEM_1000, proyDEM_fileName_1000, shape_1000, nband=1)
+    																		
+            # Upscale thermal band VIIRS from 100m to 400m
+            MODIS_Upscale, ulx_dem, lry_dem, lrx_dem, uly_dem, epsg_to = reproject_dataset2(
+                           temp_surface_250_fileName_beforeTS, proyDEM_fileName_1000)
+            data_Temp_Surf_1000 = MODIS_Upscale.GetRasterBand(1).ReadAsArray()
+ 
+            # Upscale PROBA-V NDVI from 100m to 400m       
+            NDVI_MODIS_Upscale, ulx_dem, lry_dem, lrx_dem, uly_dem, epsg_to = reproject_dataset2(
+                          ndvi_fileName, proyDEM_fileName_1000)
+            data_NDVI_1000 = NDVI_MODIS_Upscale.GetRasterBand(1).ReadAsArray()
+
+            # Define the width of the moving window box
+            Box=9
        
+            # Apply the surface temperature sharpening        
+            temp_surface_sharpened = Thermal_Sharpening(data_Temp_Surf_1000, data_NDVI_1000, NDVI, Box, NDVI_MODIS_Upscale, output_folder, proyDEM_fileName, shape_lsc, lsc, surf_temp_fileName)	
+
+            # Divide temporal watermask in snow and water mask by using surface temperature
+            Snow_Mask_PROBAV, water_mask, ts_moist_veg_min, NDVI_max, NDVI_std = CalculateSnowWaterMask(NDVI,shape_lsc,water_mask,temp_surface_sharpened)
+
+            # Replace water values
+            temp_surface_sharpened[water_mask==1] = n120_surface_temp[water_mask == 1]
+            temp_surface_sharpened = np.where(np.isnan(temp_surface_sharpened),n120_surface_temp,temp_surface_sharpened)          
+            
+            surf_temp_fileName = os.path.join(output_folder, 'Output_vegetation','%s_%s_surface_temp_sharpened_%s_%s_%s.tif' %(sensor1, sensor2, res2, year, DOY))
+            save_GeoTiff_proy(lsc, temp_surface_sharpened, surf_temp_fileName, shape_lsc, nband=1)     
+            save_GeoTiff_proy(lsc, Snow_Mask_PROBAV, snow_mask_fileName, shape_lsc, nband=1)
+            
+				
+        ######################################## End Thermal Sharpening ################################################3
+
+        # Check if Quality dataset is defined. If so use this one instead of the PROBAV-VIIRS one 
+
+        # Check Quality
+        try: 
+            if (ws['F%d' % number].value) is not None:					
+                # Output folder QC defined by the user							
+                QC_fileName = os.path.join(output_folder, 'Output_cloud_masked', 'User_quality_mask_%s_%s_%s.tif.tif' %(res2, year, DOY))
+          
+                # Reproject and reshape users NDVI  
+                QC_Map = Reshape_Reproject_Input_data(r'%s' %str(ws['F%d' % number].value),QC_fileName, proyDEM_fileName)		 														 
+      
+                 # Save the QC map as tif file												
+                save_GeoTiff_proy(lsc, QC_Map, QC_fileName, shape_lsc, nband=1)
+             
+		    # if the users NDVI data cannot be reprojected than use the original PROBA-V data as imported into SEBAL		
+            else:
+					
+                # Define users QC output name																
+                QC_tot_fileName = os.path.join(output_folder, 'Output_cloud_masked', '%s_quality_mask_%s_%s_%s.tif' %(sensor1, res2, year, DOY))
+      										
+                 # Save the QC map as tif file											
+                save_GeoTiff_proy(lsc, QC_Map, QC_tot_fileName, shape_lsc, nband=1)
+												  
+        except:                
+             assert "Please check the VIIRS path, was not able to create VIIRS QC map"       
+ 	
+        print '---------------------------------------------------------'
+        print '-------------------- Collect Meteo Data -----------------'
+        print '---------------------------------------------------------'
+  
+        # Correct vegetation parameters
+        NDVI=np.where(QC_Map==1,np.nan,NDVI)
+        Surf_albedo=np.where(QC_Map==1,np.nan,Surf_albedo)
+        LAI=np.where(QC_Map==1,np.nan,LAI)
+        vegt_cover=np.where(QC_Map==1,np.nan,vegt_cover)
+        SAVI=np.where(QC_Map==1,np.nan,SAVI)      
+        
+      
     print '---------------------------------------------------------'
     print '----------------------- Meteo ---------------------------'
     print '---------------------------------------------------------'
@@ -2656,7 +3048,9 @@ def Calc_Cold_Pixels_Veg(NDVI,NDVI_max,NDVI_std,QC_Map,ts_dem,Image_Type, Cold_P
             ts_dem_cold_veg = ts_dem_cold_mean_veg + Cold_Pixel_Constant * ts_dem_cold_std_veg
     if Image_Type == 2:    
             ts_dem_cold_veg = ts_dem_cold_mean_veg + Cold_Pixel_Constant * ts_dem_cold_std_veg
-    
+    if Image_Type == 3:    
+            ts_dem_cold_veg = ts_dem_cold_mean_veg + Cold_Pixel_Constant * ts_dem_cold_std_veg    
+            
     print 'cold vegetation: min=%0.3f (Kelvin)' %ts_dem_cold_min_veg , ', sd= %0.3f (Kelvin)' % ts_dem_cold_std_veg, \
 				', mean= %0.3f (Kelvin)' % ts_dem_cold_mean_veg, ', value= %0.3f (Kelvin)' % ts_dem_cold_veg 
     return(ts_dem_cold_veg)
@@ -3029,12 +3423,14 @@ def Calc_Ra_Mountain(lon,DOY,hour,minutes,lon_proy,lat_proy,slope,aspect):
     Min_cos_zn = 0.1  # Min value for cos zenith angle
     Max_cos_zn = 1.0  # Max value for cos zenith angle
     Gsc = 1367        # Solar constant (W / m2)
-    Loc_time = float(hour) + float(minutes)/60  # Local time (hours)
-    
+    try:
+        Loc_time = float(hour) + float(minutes)/60  # Local time (hours)
+    except:
+        Loc_time = np.float_(hour) + np.float_(minutes)/60  # Local time (hours)
     # Rounded difference of the local time from Greenwich (GMT) (hours):
     offset_GTM = round(np.sign(lon[int(lon.shape[0])/2, int(lon.shape[1])/2]) * lon[int(lon.shape[0])/2,int(lon.shape[1])/2] * 24 / 360)
                        
-    print '  Local time: ', '%0.3f' % Loc_time
+    print '  Local time: ', '%0.3f' % np.nanmean(Loc_time)
     print '  Difference of local time (LT) from Greenwich (GMT): ', offset_GTM
 
     # 1. Calculation of extraterrestrial solar radiation for slope and aspect
@@ -3801,3 +4197,59 @@ def Check_dT(rn_inst, g_inst, LAI, vegt_cover, z0m, u_200, Temp_inst, RH_inst, a
     T0_DEM = dT + Temp_inst		
     T0_DEM += 273.15									
     return(dT, T0_DEM)	
+
+#------------------------------------------------------------------------------   
+def reproject_MODIS(input_name, output_name, epsg_to):       
+    '''
+    Reproject the merged data file
+	
+    Keywords arguments:
+    output_folder -- 'C:/file/to/path/'
+    '''                    
+    
+    # Get environmental variable
+    SEBAL_env_paths = os.environ["SEBAL"].split(';')
+    GDAL_env_path = SEBAL_env_paths[0]
+    GDALWARP_PATH = os.path.join(GDAL_env_path, 'gdalwarp.exe')
+
+    split_input = input_name.split('hdf":')
+    inputname = '%shdf":"%s"' %(split_input[0],split_input[1])
+
+    # find path to the executable
+    fullCmd = ' '.join(["%s" %(GDALWARP_PATH), '-overwrite -s_srs "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 +b=6371007.181 +units=m +no_defs"', '-t_srs EPSG:%s -of GTiff' %(epsg_to), inputname, output_name])   
+    process = subprocess.Popen(fullCmd)
+    process.wait() 
+				
+    return()  
+
+#------------------------------------------------------------------------------   				
+def Open_reprojected_hdf(input_name, Band, epsg_to, scale_factor, proyDEM_fileName):
+
+    g=gdal.Open(input_name, gdal.GA_ReadOnly)
+    
+    folder_out = os.path.dirname(input_name)
+    output_name_temp = os.path.join(folder_out, "temporary.tif")
+    
+    # Open and reproject           
+    name_in = g.GetSubDatasets()[Band][0]
+
+    reproject_MODIS(name_in, output_name_temp, epsg_to)
+
+    dest, ulx_dem, lry_dem, lrx_dem, uly_dem, epsg_to = reproject_dataset2(output_name_temp, proyDEM_fileName)
+    Array = dest.GetRasterBand(1).ReadAsArray() * scale_factor
+
+    os.remove(output_name_temp)
+                              
+    return(Array)  
+
+#------------------------------------------------------------------------------   	
+
+def Modis_Time(src_FileName_LST, epsg_to, proyDEM_fileName):
+      
+    Time = Open_reprojected_hdf(src_FileName_LST, 2, epsg_to, 0.1, proyDEM_fileName)
+
+    hour = np.floor(Time)
+    hour[hour == 0] = np.nan
+    minutes = (Time - hour) * 60
+    
+    return(hour, minutes) 

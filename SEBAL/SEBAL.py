@@ -51,7 +51,7 @@ def SEBALcode(number,inputExcel):
     print '.................................................................. '
     print '......................SEBAL Model running ........................ '
     print '.................................................................. '
-    print 'pySEBAL version 3.3.6'
+    print 'pySEBAL version 3.3.7'
     print 'General Input:'			
     print 'Path to DEM file = %s' %str(DEM_fileName)
     print 'input_folder = %s' %str(input_folder)
@@ -91,8 +91,8 @@ def SEBALcode(number,inputExcel):
         print 'Path to MODIS LST image = %s' %str(Name_MODIS_Image_LST)
         print 'Path to MODIS NDVI image = %s' %str(Name_MODIS_Image_NDVI)
         print 'Path to MODIS Reflectance image = %s' %str(Name_MODIS_Image_Ref)
-        print 'Hot Pixel Constant VIIRS = %s' %(Hot_Pixel_Constant)	
-        print 'Cold Pixel Constant VIIRS = %s' %(Cold_Pixel_Constant)	
+        print 'Hot Pixel Constant MODIS = %s' %(Hot_Pixel_Constant)	
+        print 'Cold Pixel Constant MODIS = %s' %(Cold_Pixel_Constant)	
         print 'UTM Zone = %s' %(UTM_Zone)
         print 'Pixel size model = %s (Meters)' %(pixel_spacing)	 
         
@@ -2216,6 +2216,7 @@ def SEBALcode(number,inputExcel):
         Rs_in_inst = Ra_inst * Transm_corr  
        
     # Atmospheric emissivity, by Bastiaanssen (1995):
+    Transm_corr[Transm_corr<0.001]=0.1
     Transm_corr[Transm_corr>1]=1
     atmos_emis = 0.85 * np.power(-np.log(Transm_corr), 0.09) 
       

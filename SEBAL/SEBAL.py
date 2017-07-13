@@ -21,9 +21,14 @@ import subprocess
 import numpy.polynomial.polynomial as poly	
 from openpyxl import load_workbook
 from pyproj import Proj, transform
+import warnings
+
 
 def SEBALcode(number,inputExcel):
-        
+  
+    # Do not show warnings
+    warnings.filterwarnings('ignore')  
+    
     # Open Excel workbook	
     wb = load_workbook(inputExcel)
 			
@@ -745,6 +750,7 @@ def SEBALcode(number,inputExcel):
        
     # Read out the DEM band and print the DEM properties
     data_DEM = band.ReadAsArray(0, 0, ncol, nrow)
+    #data_DEM[data_DEM<0] = 1
     print 'Projected DEM - '
     print '   Size: ', ncol, nrow
     print '   Upper Left corner x, y: ', ulx_dem, ',', uly_dem
@@ -1357,11 +1363,13 @@ def SEBALcode(number,inputExcel):
                 mask=np.zeros((shape_lsc[1], shape_lsc[0]))
                 mask[np.logical_and.reduce((temp_surface_sharpened < (ts_cold_land+Temperature_offset_shadow),Surf_albedo < Maximum_shadow_albedo,water_mask!=1))]=1
                 shadow_mask=np.copy(mask)
+                shadow_mask = Create_Buffer(shadow_mask)
        
                 # Make cloud mask
                 mask=np.zeros((shape_lsc[1], shape_lsc[0]))
                 mask[np.logical_and.reduce((temp_surface_sharpened < (ts_cold_land+Temperature_offset_clouds),Surf_albedo > Minimum_cloud_albedo,NDVI<0.7,snow_mask!=1))]=1
                 cloud_mask=np.copy(mask)
+                cloud_mask = Create_Buffer(cloud_mask)                
        
                 # Save output maps
                 save_GeoTiff_proy(lsc, cloud_mask, cloud_mask_fileName, shape_lsc, nband=1)
@@ -2584,6 +2592,33 @@ def SEBALcode(number,inputExcel):
     # FUNCTIONS
     #-------------------------------------------------------------------------
 
+def Create_Buffer(Data_In):
+    
+   '''
+   This function creates a 3D array which is used to apply the moving window
+   '''
+   Buffer_area = 5 # A block of 2 times Buffer_area + 1 will be 1 if there is the pixel in the middle is 1
+   Data_Out=np.empty((len(Data_In),len(Data_In[1])))   
+   Data_Out[:,:] = Data_In
+   for ypixel in range(1,Buffer_area + 1):
+        Data_Out[:,0:-ypixel] += Data_In[:,ypixel:]
+        Data_Out[:,ypixel:] += Data_In[:,:-ypixel]
+        
+        for xpixel in range(1,Buffer_area + 1):
+           Data_Out[0:-xpixel,ypixel:] += Data_In[xpixel:,:-ypixel]
+           Data_Out[xpixel:,ypixel:] += Data_In[:-xpixel,:-ypixel]
+           Data_Out[0:-xpixel,0:-ypixel] += Data_In[xpixel:,ypixel:]
+           Data_Out[xpixel:,0:-ypixel] += Data_In[:-xpixel,ypixel:]
+
+           if ypixel==1:
+                Data_Out[xpixel:,:] += Data_In[:-xpixel,:]
+                Data_Out[:,0:-xpixel] += Data_In[:,xpixel:]
+
+
+   Data_Out[Data_Out>0.1] = 1
+   Data_Out[Data_Out<=0.1] = 0  
+           
+   return(Data_Out)
 
 def Calc_Biomass_production(LAI,ETP_24,moisture_stress_biomass,ETA_24,Ra_mountain_24,Transm_24,FPAR,esat_24,eact_24,Th,Kt,Tl,Temp_24,LUEmax):
     """
@@ -3931,6 +3966,7 @@ def save_GeoTiff_proy(src_dataset, dst_dataset_array, dst_fileName, shape_lsc,nb
     fmt = 'GTiff'
     driver = gdal.GetDriverByName(fmt)
     dir_name = os.path.dirname(dst_fileName)
+    
     # If the directory does not exist, make it.
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)

@@ -1150,6 +1150,21 @@ def SEBALcode(number,inputExcel):
             else:
                 print 'Landsat image not supported, use Landsat 7 or 8'
 
+            # Create Cloud mask is BQA map is available (newer version Landsat images)
+            BQA_LS_Available = 0
+            if os.path.exists(os.path.join(input_folder, '%s_BQA.TIF' %Name_Landsat_Image)):
+                src_FileName_BQA = os.path.join(input_folder, '%s_BQA.TIF' %Name_Landsat_Image)
+                ls_data_BQA = Open_landsat(src_FileName_BQA,proyDEM_fileName)
+                if Landsat_nr == 8:
+                    Cloud_Treshold = 30000
+                if Landsat_nr == 5 or Landsat_nr == 7:
+                    Cloud_Treshold = 700                    
+                QC_mask_Cloud = np.copy(ls_data_BQA)
+                QC_mask_Cloud[ls_data_BQA<Cloud_Treshold] = 0
+                QC_mask_Cloud[ls_data_BQA>=Cloud_Treshold] = 1                             
+                BQA_LS_Available = 1               
+                
+
             # Open data of the landsat mask                            
             ls_data=Open_landsat(src_FileName, proyDEM_fileName)
        
@@ -1271,10 +1286,15 @@ def SEBALcode(number,inputExcel):
             else:
                 
                 # Calculate surface temperature and create a cloud mask
-                Surface_temp,cloud_mask=Calc_surface_water_temp(Temp_inst, Landsat_nr, Lmax, Lmin, therm_data, b10_emissivity, k1_c, k2_c, eact_inst, shape_lsc, water_mask_temp, Bands_thermal, Rp, tau_sky, surf_temp_offset, Image_Type)    
-                Thermal_Sharpening_not_needed = 0
-                Surface_temp[cloud_mask == 1] = np.nan
+                Surface_temp,cloud_mask = Calc_surface_water_temp(Temp_inst, Landsat_nr, Lmax, Lmin, therm_data, b10_emissivity, k1_c, k2_c, eact_inst, shape_lsc, water_mask_temp, Bands_thermal, Rp, tau_sky, surf_temp_offset, Image_Type)    
                 Thermal_Sharpening_not_needed = 0	
+                
+                # Replace clouds mask is a better one is already created
+                if BQA_LS_Available == 1:
+                    cloud_mask = QC_mask_Cloud
+                
+                Surface_temp[cloud_mask == 1] = np.nan
+                
         except:
             assert "Please check the surface temperature input path"																
 
@@ -1366,11 +1386,12 @@ def SEBALcode(number,inputExcel):
                 shadow_mask = Create_Buffer(shadow_mask)
        
                 # Make cloud mask
-                mask=np.zeros((shape_lsc[1], shape_lsc[0]))
-                mask[np.logical_and.reduce((temp_surface_sharpened < (ts_cold_land+Temperature_offset_clouds),Surf_albedo > Minimum_cloud_albedo,NDVI<0.7,snow_mask!=1))]=1
-                cloud_mask=np.copy(mask)
-                cloud_mask = Create_Buffer(cloud_mask)                
-       
+                if BQA_LS_Available != 1:
+                    mask=np.zeros((shape_lsc[1], shape_lsc[0]))
+                    mask[np.logical_and.reduce((temp_surface_sharpened < (ts_cold_land+Temperature_offset_clouds),Surf_albedo > Minimum_cloud_albedo,NDVI<0.7,snow_mask!=1))]=1
+                    cloud_mask=np.copy(mask)
+                    cloud_mask = Create_Buffer(cloud_mask)                
+           
                 # Save output maps
                 save_GeoTiff_proy(lsc, cloud_mask, cloud_mask_fileName, shape_lsc, nband=1)
                 save_GeoTiff_proy(lsc, snow_mask, snow_mask_fileName, shape_lsc, nband=1)                  
@@ -2597,7 +2618,7 @@ def Create_Buffer(Data_In):
    '''
    This function creates a 3D array which is used to apply the moving window
    '''
-   Buffer_area = 5 # A block of 2 times Buffer_area + 1 will be 1 if there is the pixel in the middle is 1
+   Buffer_area = 2 # A block of 2 times Buffer_area + 1 will be 1 if there is the pixel in the middle is 1
    Data_Out=np.empty((len(Data_In),len(Data_In[1])))   
    Data_Out[:,:] = Data_In
    for ypixel in range(1,Buffer_area + 1):
@@ -3188,8 +3209,8 @@ def Calc_surface_water_temp(Temp_inst,Landsat_nr,Lmax,Lmin,therm_data,b10_emissi
     print 'Mean water temperature = ', '%0.3f (Kelvin)' % temp_water_mean
     print 'SD water temperature = ', '%0.3f (Kelvin)' % temp_water_sd
     cloud_mask = np.zeros((shape_lsc[1], shape_lsc[0]))
-    cloud_mask[Surface_temp < (temp_water_mean - 1.0 * temp_water_sd -
-               surf_temp_offset)] = 1.0
+    cloud_mask[Surface_temp < np.minimum((temp_water_mean - 1.0 * temp_water_sd -
+               surf_temp_offset),290)] = 1.0
                    
                        
     return(Surface_temp,cloud_mask)           

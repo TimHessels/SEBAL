@@ -108,7 +108,7 @@ def SEBALcode(number,inputExcel):
 							
         # Extract the name of the thermal and quality VIIRS image from the excel file	
         Name_VIIRS_Image_TB = '%s' %str(ws['B%d' %number].value)
-        Name_VIIRS_Image_QC = (ws['C%d' %number].value)
+        Name_VIIRS_Image_QC = '%s' %str(ws['C%d' %number].value)
     
         # Extract the name to the PROBA-V image from the excel file	
         Name_PROBAV_Image = '%s' %str(ws['D%d' %number].value)    # Must be a tiff file 

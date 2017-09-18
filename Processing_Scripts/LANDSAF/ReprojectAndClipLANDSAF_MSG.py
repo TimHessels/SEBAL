@@ -16,11 +16,12 @@ import os
 import subprocess
 import shutil
 import glob
+import SEBAL
 
 # User parameters
 latlim = [26, 37]
 lonlim = [-13, 2] 
-input_folder = r"J:\SEBAL_Tadla\LANDSAF" 
+input_folder = r"G:\SEBAL_Tadla\LANDSAF" 
 
 # Get some general data
 temp_folder = os.path.join(input_folder, 'Temporary')
@@ -42,8 +43,7 @@ for file_name in [e for e in glob.glob('HDF5_*') if not e.endswith('.tif')]:
         # unzip bunzipfile if needed 
         if str(extension) == '.bz2':
             fullCmd = '7z e %s -o%s' %(file_name,temp_folder)
-            process = subprocess.Popen(fullCmd)
-            process.wait() 
+            SEBAL.Run_command_window(fullCmd)
             input_folder_landsaf = temp_folder
         else:
             input_folder_landsaf = input_folder        
@@ -57,13 +57,12 @@ for file_name in [e for e in glob.glob('HDF5_*') if not e.endswith('.tif')]:
         # Set projection of GOES/LANDSAF data
         output_GOES_projected = os.path.join(temp_folder,'GOES_projected_LANDSAF.tif')    
         fullCmd = '"%s" -a_srs  "+proj=geos +a=6378169 +b=6356583.8 +lon_0=0 +h=35785831" -a_ullr -5570248.832537 5570248.832537 5570248.832537 -5570248.832537 HDF5:"%s"://DSSF "%s"' %(GDAL_TRANSLATE, os.path.join(input_folder_landsaf, file_name_only), output_GOES_projected)
-        process = subprocess.Popen(fullCmd)
-        process.wait() 
-  
+        SEBAL.Run_command_window(fullCmd)
+        
         # Reproject GOES/LANDSAF data and clip data
         fullCmd = '"%s" -overwrite -s_srs "+proj=geos +lon_0=0 +h=35785831 +x_0=0 +y_0=0 +a=6378169 +b=6356583.8 +units=m +no_defs" -t_srs EPSG:4326 -te %d %d %d %d -of GTiff "%s" "%s"' %(GDALWARP, lonlim[0], latlim[0], lonlim[1], latlim[1], output_GOES_projected, out_name)
-        process = subprocess.Popen(fullCmd)
-        process.wait() 
+        SEBAL.Run_command_window(fullCmd)
+
 
 # Save data as Tiff
 if os.path.exists(temp_folder):

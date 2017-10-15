@@ -785,7 +785,7 @@ def SEBALcode(number,inputExcel):
     print '---------------------------------------------------------'
     print '-------------------- Radiation --------------------------'
     print '---------------------------------------------------------'
-
+    '''
     if Image_Type == 2:
 
         # Rounded difference of the local time from Greenwich (GMT) (hours):
@@ -800,7 +800,7 @@ def SEBALcode(number,inputExcel):
         if hour >= 24:
             day += 1
             hour -= 24        
-
+    '''
     if Image_Type == 3:        
 
            hour, minutes = Modis_Time(src_FileName_LST, epsg_to, proyDEM_fileName)
@@ -1698,8 +1698,8 @@ def SEBALcode(number,inputExcel):
                 # Divide temporal watermask in snow and water mask by using surface temperature
                 Snow_Mask_PROBAV, water_mask, ts_moist_veg_min, NDVI_max, NDVI_std = CalculateSnowWaterMask(NDVI,shape_lsc,water_mask,temp_surface_sharpened)
 
-                data_VIIRS_QC = np.zeros((shape_lsc[1], shape_lsc[0]))
-                data_VIIRS_QC[np.isnan(temp_surface_sharpened)] = 1
+                QC_Map = np.zeros((shape_lsc[1], shape_lsc[0]))
+                QC_Map[np.isnan(temp_surface_sharpened)] = 1
 
             else:
                 # Define the VIIRS thermal data name
@@ -2251,7 +2251,7 @@ def SEBALcode(number,inputExcel):
     print 'Atmospheric emissivity = %0.3f' % np.nanmean(atmos_emis) 
         
     # calculates the ground heat flux and the solar radiation
-    Rn_24,rn_inst,g_inst,Rnl_24_FAO =Calc_Meteo(Rs_24,eact_24,Temp_24,Surf_albedo,cos_zn,dr,tir_emis,temp_surface_sharpened,water_mask,NDVI,Transm_24,SB_const,lw_in_inst,Rs_in_inst) 
+    Rn_24,rn_inst,g_inst,Rnl_24_FAO =Calc_Meteo(Rs_24,eact_24,Temp_24,Surf_albedo,dr,tir_emis,temp_surface_sharpened,water_mask,NDVI,Transm_24,SB_const,lw_in_inst,Rs_in_inst) 
 
     print 'Mean Daily Net Radiation (FAO) = %0.3f (W/m2)' % np.nanmean(Rnl_24_FAO)
     print 'Mean Daily Net Radiation = %0.3f (W/m2)' % np.nanmean(Rn_24)
@@ -3033,7 +3033,7 @@ def Calc_Hot_Pixels(ts_dem,QC_Map, water_mask, NDVI,NDVIhot_low,NDVIhot_high,Hot
     for_hot[NDVI >= NDVIhot_high] = 0.0
     for_hot[np.logical_or(water_mask != 0.0, QC_Map != 0.0)] = 0.0
     hot_pixels = np.copy(for_hot)
-    hot_pixels[for_hot < 273.0] = np.nan
+    hot_pixels[for_hot < 285.0] = np.nan
     ts_dem_hot_max = np.nanmax(hot_pixels)    # Max
     ts_dem_hot_mean = np.nanmean(hot_pixels)  # Mean
     ts_dem_hot_std = np.nanstd(hot_pixels)    # Standard deviation
@@ -3057,7 +3057,7 @@ def Calc_Cold_Pixels(ts_dem,water_mask,QC_Map,ts_dem_cold_veg,Cold_Pixel_Constan
     for_cold[water_mask != 1.0] = 0.0
     for_cold[QC_Map != 0] = 0.0
     cold_pixels = np.copy(for_cold)
-    cold_pixels[for_cold < 285.0] = np.nan
+    cold_pixels[for_cold < 278.0] = np.nan
     cold_pixels[for_cold > 320.0] = np.nan
     # cold_pixels[for_cold < 285.0] = 285.0
     ts_dem_cold_std = np.nanstd(cold_pixels)     # Standard deviation
@@ -3066,9 +3066,9 @@ def Calc_Cold_Pixels(ts_dem,water_mask,QC_Map,ts_dem_cold_veg,Cold_Pixel_Constan
 
     # If average temperature is below zero or nan than use the vegetation cold pixel
     if ts_dem_cold_mean <= 0.0:
-        ts_dem_cold = ts_dem_cold_veg
+        ts_dem_cold = ts_dem_cold_veg + Cold_Pixel_Constant * ts_dem_cold_std
     if np.isnan(ts_dem_cold_mean) == True:
-        ts_dem_cold = ts_dem_cold_veg 							
+        ts_dem_cold = ts_dem_cold_veg + Cold_Pixel_Constant * ts_dem_cold_std 							
     else:
         ts_dem_cold = ts_dem_cold_mean + Cold_Pixel_Constant * ts_dem_cold_std
 
@@ -3103,7 +3103,7 @@ def Calc_Cold_Pixels_Veg(NDVI,NDVI_max,NDVI_std,QC_Map,ts_dem,Image_Type, Cold_P
     return(ts_dem_cold_veg)
    
 #------------------------------------------------------------------------------   
-def Calc_Meteo(Rs_24,eact_24,Temp_24,Surf_albedo,cos_zn,dr,tir_emis,Surface_temp,water_mask,NDVI,Transm_24,SB_const,lw_in_inst,Rs_in_inst):
+def Calc_Meteo(Rs_24,eact_24,Temp_24,Surf_albedo,dr,tir_emis,Surface_temp,water_mask,NDVI,Transm_24,SB_const,lw_in_inst,Rs_in_inst):
     """       
     Calculates the instantaneous Ground heat flux and solar radiation.
     """ 
@@ -3940,7 +3940,9 @@ def reproject_dataset_example(dataset, dataset_example, method = 1):
         gdal.ReprojectImage(g_in, dest1, wgs84.ExportToWkt(), osng.ExportToWkt(), gdal.GRA_NearestNeighbour)
     if method == 2:
         gdal.ReprojectImage(g_in, dest1, wgs84.ExportToWkt(), osng.ExportToWkt(), gdal.GRA_Average)
-
+    if method == 3:
+        gdal.ReprojectImage(g_in, dest1, wgs84.ExportToWkt(), osng.ExportToWkt(), gdal.GRA_Cubic)
+        
     return(dest1, ulx, lry, lrx, uly, epsg_to)			
 
 #------------------------------------------------------------------------------

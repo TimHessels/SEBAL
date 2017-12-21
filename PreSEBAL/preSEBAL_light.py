@@ -41,7 +41,7 @@ def main():
 ################################################# PreHANTS part 1 ##################################################		
 ####################################################################################################################
 
-    VegetationExcel =r"X:\Excel_in_test_2\Vegetation height model.xlsx"  # This excel defines the p and c factor and vegetation height.
+    VegetationExcel =r"$HOME\SEBAL\Excel_PreSEBAL_v1_0.xlsx"  # This excel defines the p and c factor and vegetation height.
 
 ####################################################################################################################   
 ################################################# PreHANTS part 2 ##################################################		

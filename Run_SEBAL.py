@@ -7,12 +7,10 @@ Created on Tue May 03 13:12:18 2016
 
 import SEBAL
 
-inputExcel = r"$HOME\SEBAL_Codes\InputEXCEL_v3_3_7.xlsx"
+inputExcel = r"$HOME\SEBAL\Excel_SEBAL_v3_3_8.xlsx"
 
 for number in range(2,4):
-    try:
-        SEBAL.SEBALcode(number,inputExcel)
-    except:
-        print 'SEBAL did not run line %d fully' % number
+    SEBAL.pySEBAL.pySEBAL_code.main(number,inputExcel)
+
         
 

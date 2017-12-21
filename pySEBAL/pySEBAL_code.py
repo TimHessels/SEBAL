@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-pySEBAL_3.3.7.1
+pySEBAL_3.3.8
 
 @author: Tim Hessels, Jonna van Opstal, Patricia Trambauer, Wim Bastiaanssen, Mohamed Faouzi Smiej, Yasir Mohamed, and Ahmed Er-Raji
          UNESCO-IHE
@@ -23,10 +23,13 @@ from openpyxl import load_workbook
 from pyproj import Proj, transform
 import warnings
 
-def SEBALcode(number,inputExcel):
+def main(number,inputExcel):
   
     # Do not show warnings
     warnings.filterwarnings('ignore')  
+    
+    # thermal sharpening
+    Thermal_Sharpening_not_needed = 0 # (1 == off 0 == on)
     
     # Open Excel workbook	
     wb = load_workbook(inputExcel)
@@ -55,7 +58,7 @@ def SEBALcode(number,inputExcel):
     print '.................................................................. '
     print '......................SEBAL Model running ........................ '
     print '.................................................................. '
-    print 'pySEBAL version 3.3.7.1 Github'
+    print 'pySEBAL version 3.3.8 Github'
     print 'General Input:'			
     print 'Path to DEM file = %s' %str(DEM_fileName)
     print 'input_folder = %s' %str(input_folder)
@@ -363,11 +366,6 @@ def SEBALcode(number,inputExcel):
     # General constants that could be changed by the user:
     print '...................... General Constants ......................... '	  
                                
-    # Data for Module 2 - Spectral and Thermal bands
-    L_SAVI = 0.5                          # Constant for SAVI 
-    print 'General constants for Module 2:'			
-    print 'Constant for SAVI (L) = %s' %(L_SAVI)		
-   
     # Data for Module 3 - Vegetation properties
     Apparent_atmosf_transm = 0.89    # This value is used for atmospheric correction of broad band albedo. This value is used for now, would be better to use tsw.
     path_radiance = 0.03             # Recommended, Range: [0.025 - 0.04], based on Bastiaanssen (2000).
@@ -1013,7 +1011,7 @@ def SEBALcode(number,inputExcel):
        
     # Saturation Vapor Pressure at the air temperature (kPa):
     esat_inst = 0.6108 * np.exp(17.27 * Temp_inst / (Temp_inst + 237.3))
-    esat_24=0.6108 * np.exp(17.27 * Temp_24 / (Temp_24 + 237.3))
+    esat_24 = 0.6108 * np.exp(17.27 * Temp_24 / (Temp_24 + 237.3))
       
     # Actual vapour pressure (kPa), FAO 56, eq 19.:
     eact_inst = RH_inst * esat_inst / 100
@@ -1149,7 +1147,7 @@ def SEBALcode(number,inputExcel):
                 src_FileName_BQA = os.path.join(input_folder, '%s_BQA.TIF' %Name_Landsat_Image)
                 ls_data_BQA = Open_landsat(src_FileName_BQA,proyDEM_fileName)
                 if Landsat_nr == 8:
-                    Cloud_Treshold = 30000
+                    Cloud_Treshold = 2721
                 if Landsat_nr == 5 or Landsat_nr == 7:
                     Cloud_Treshold = 700                    
                 QC_mask_Cloud = np.copy(ls_data_BQA)
@@ -1196,7 +1194,7 @@ def SEBALcode(number,inputExcel):
                 water_mask_temp[NDVI < 0.0] = 1.0
 			  								
             else:
-                # use the Landsat reflectance to calculate the surface albede, NDVI and SAVI
+                # use the Landsat reflectance to calculate the surface albede, NDVI
                 NDVI = Calc_NDVI(Reflect)
           
                 # save landsat NDVI	
@@ -1208,25 +1206,18 @@ def SEBALcode(number,inputExcel):
                 
         except:
             assert "Please check the NDVI input path"
-												
-        # Check SAVI							
+            
+        # Check Water Mask	            
         try:
-            if (ws['C%d' % number].value) is not None:					
-                # Output folder SAVI							
-                savi_fileName = os.path.join(output_folder, 'Output_vegetation', 'User_SAVI_%s_%s_%s.tif' %(res2, year, DOY))
-                SAVI=Reshape_Reproject_Input_data(r'%s' %str(ws['C%d' % number].value),savi_fileName,proyDEM_fileName)		 					
-		 									
-            else:
-                # use the Landsat reflectance to calculate the SAVI
-                SAVI = Calc_SAVI(Reflect, L_SAVI)
-
-                # save landsat SAVI	
-                savi_fileName = os.path.join(output_folder, 'Output_vegetation', '%s_SAVI_%s_%s_%s.tif' %(sensor1, res2, year, DOY))				
-                save_GeoTiff_proy(lsc, SAVI, savi_fileName, shape_lsc, nband=1)																  
-
+            if (ws['C%d' % number].value) is not None:	
+				
+                # Overwrite the Water mask and change the output name					
+                water_mask_temp_fileName = os.path.join(output_folder, 'Output_soil_moisture', 'User_Water_mask_temporary_%s_%s_%s.tif' %(res2, year, DOY))
+                water_mask_temp = Reshape_Reproject_Input_data(r'%s' %str(ws['C%d' % number].value), water_mask_temp_fileName, proyDEM_fileName)		 														 
+                
         except:
-            assert "Please check the SAVI input path"
-  
+            assert "Please check the Water Mask input path"            
+												
         # Check Surface albedo	
         try:
             if (ws['D%d' % number].value) is not None:					
@@ -1237,7 +1228,7 @@ def SEBALcode(number,inputExcel):
             else:
                 surface_albedo_fileName = os.path.join(output_folder, 'Output_vegetation','%s_surface_albedo_%s_%s_%s.tif' %(sensor1, res2, year, DOY))
 
-                # use the Landsat reflectance to calculate the surface albede, NDVI and SAVI
+                # use the Landsat reflectance to calculate the surface albede, NDVI
                 Surf_albedo = Calc_albedo(Reflect,path_radiance,Apparent_atmosf_transm)
  
                 # save landsat surface albedo
@@ -1246,7 +1237,7 @@ def SEBALcode(number,inputExcel):
               assert "Please check the Albedo input path"        
 	 						
         # calculate vegetation properties
-        FPAR,tir_emis,Nitrogen,vegt_cover,LAI,b10_emissivity=Calc_vegt_para(NDVI,SAVI,water_mask_temp,shape_lsc)
+        FPAR,tir_emis,Nitrogen,vegt_cover,LAI,b10_emissivity=Calc_vegt_para(NDVI, water_mask_temp,shape_lsc)
 
         # Save output maps that will be used in SEBAL
         save_GeoTiff_proy(lsc, water_mask_temp, water_mask_temp_fileName, shape_lsc, nband=1)
@@ -1272,14 +1263,17 @@ def SEBALcode(number,inputExcel):
             if (ws['E%d' % number].value) is not None:				
                 # Output folder surface temperature						
                 surf_temp_fileName = os.path.join(output_folder, 'Output_vegetation','User_surface_temp_%s_%s_%s.tif' %(res2, year, DOY))
-                temp_surface_sharpened=Reshape_Reproject_Input_data(r'%s' %str(ws['E%d' % number].value),surf_temp_fileName,proyDEM_fileName)		 					
-                cloud_mask = np.zeros([int(np.shape(temp_surface_sharpened)[1]),int(np.shape(temp_surface_sharpened)[0])])
-                Thermal_Sharpening_not_needed = 1		 									
+                Surface_temp=Reshape_Reproject_Input_data(r'%s' %str(ws['E%d' % number].value),surf_temp_fileName,proyDEM_fileName)		 					
+                cloud_mask = np.zeros([int(np.shape(Surface_temp)[1]),int(np.shape(Surface_temp)[0])])
+                
+                snow_mask, water_mask, ts_moist_veg_min, NDVI_max, NDVI_std = CalculateSnowWaterMask(NDVI,shape_lsc,water_mask_temp,Surface_temp)
+                QC_Map = np.zeros((shape_lsc[1], shape_lsc[0]))
+                QC_Map[np.isnan(Surface_temp)] = 1	 									
             else:
                 
                 # Calculate surface temperature and create a cloud mask
                 Surface_temp,cloud_mask = Calc_surface_water_temp(Temp_inst, Landsat_nr, Lmax, Lmin, therm_data, b10_emissivity, k1_c, k2_c, eact_inst, shape_lsc, water_mask_temp, Bands_thermal, Rp, tau_sky, surf_temp_offset, Image_Type)    
-                Thermal_Sharpening_not_needed = 0	
+
                 
                 # Replace clouds mask is a better one is already created
                 if BQA_LS_Available == 1:
@@ -1291,6 +1285,9 @@ def SEBALcode(number,inputExcel):
             assert "Please check the surface temperature input path"																
 
         # Perform Thermal sharpening for the thermal LANDSAT image
+        if Thermal_Sharpening_not_needed is 1:  
+            temp_surface_sharpened = Surface_temp
+            
         if Thermal_Sharpening_not_needed is 0:
 
 		    # Upscale DEM to 90m
@@ -1559,7 +1556,7 @@ def SEBALcode(number,inputExcel):
         # 3 = RED
         # 4 = SWIR
       
-        # Check if a NDVI, SAVI, or Surface Albedo dataset is defined. If so use this one instead of the PROBAV otherwise PROBAV
+        # Check if a NDVI or Surface Albedo dataset is defined. If so use this one instead of the PROBAV otherwise PROBAV
 
         # Check NDVI
         try:
@@ -1601,29 +1598,19 @@ def SEBALcode(number,inputExcel):
 		 														  
         except:                
             assert "Please check the PROBA-V path, was not able to create NDVI"
-												
-        # Check SAVI	
-        try:
-            if (ws['C%d' % number].value) is not None:					
-                # Output folder SAVI	defined by the user					
-                savi_fileName = os.path.join(output_folder, 'Output_vegetation', 'User_SAVI_%s_%s_%s.tif' %(res2, year, DOY))
-															
-                # Reproject and reshape users SAVI  															
-                SAVI=Reshape_Reproject_Input_data(r'%s' %str(ws['C%d' % number].value),savi_fileName,proyDEM_fileName)		 					
 
-            # if the users SAVI data cannot be reprojected than use the original PROBA-V data as imported into SEBAL													
-            else:
-                # Calculate SAVI based on PROBA-V
-                SAVI = (1+L_SAVI)*(spectral_reflectance_PROBAV[:, :, 3]-spectral_reflectance_PROBAV[:, :, 2])/(L_SAVI+spectral_reflectance_PROBAV[:, :, 2]+spectral_reflectance_PROBAV[:, :, 3])
- 
-                # Define users SAVI output name	
-                savi_fileName = os.path.join(output_folder, 'Output_vegetation', '%s_SAVI_%s_%s_%s.tif' %(sensor1, res2, year, DOY))	
-															
-                # Save the PROBA-V SAVI as tif file															
-                save_GeoTiff_proy(lsc, SAVI, savi_fileName, shape_lsc, nband=1)																  
+        # Check Water Mask	            
+        try:
+            if (ws['C%d' % number].value) is not None:	
+				
+                # Overwrite the Water mask and change the output name					
+                water_mask_fileName = os.path.join(output_folder, 'Output_soil_moisture', 'User_Water_mask_temporary_%s_%s_%s.tif' %(res2, year, DOY))
+                water_mask = Reshape_Reproject_Input_data(r'%s' %str(ws['C%d' % number].value), water_mask_temp_fileName, proyDEM_fileName)		 														 
+                
         except:
-             assert "Please check the PROBA-V path, was not able to create SAVI"       			
-								
+            assert "Please check the Water Mask input path"            
+	
+					    								
         # Check surface albedo		
         try:
             if (ws['D%d' % number].value) is not None:					
@@ -1650,7 +1637,7 @@ def SEBALcode(number,inputExcel):
              assert "Please check the PROBA-V path, was not able to create Albedo"       
 
         # Calculate the Fpar, TIR, Nitrogen, Vegetation Cover, LAI and b10_emissivity based on PROBA-V      
-        FPAR,tir_emis,Nitrogen_PROBAV,vegt_cover,LAI,b10_emissivity_PROBAV=Calc_vegt_para(NDVI,SAVI,water_mask,shape_lsc)
+        FPAR,tir_emis,Nitrogen_PROBAV,vegt_cover,LAI,b10_emissivity_PROBAV=Calc_vegt_para(NDVI,water_mask,shape_lsc)
 				
         # Save the paramaters as a geotiff
         save_GeoTiff_proy(lsc, water_mask, water_mask_fileName, shape_lsc, nband=1)
@@ -1691,12 +1678,10 @@ def SEBALcode(number,inputExcel):
                 proyVIIRS_fileName_100 = os.path.join(output_folder, 'Output_VIIRS','User_TB_%s_%s_%s.tif' %(res2, year, DOY))
   
                 # Reshape and reproject the Thermal data given by the user and resample this to a 375m resolution
-                temp_surface_sharpened = Reshape_Reproject_Input_data(r'%s' %str(ws['E%d' % number].value), proyVIIRS_fileName_100, proyDEM_fileName)		 					
+                n120_surface_temp = Reshape_Reproject_Input_data(r'%s' %str(ws['E%d' % number].value), proyVIIRS_fileName_100, proyDEM_fileName)		 					
  
-                Thermal_Sharpening_not_needed = 1	
-                
                 # Divide temporal watermask in snow and water mask by using surface temperature
-                Snow_Mask_PROBAV, water_mask, ts_moist_veg_min, NDVI_max, NDVI_std = CalculateSnowWaterMask(NDVI,shape_lsc,water_mask,temp_surface_sharpened)
+                Snow_Mask_PROBAV, water_mask, ts_moist_veg_min, NDVI_max, NDVI_std = CalculateSnowWaterMask(NDVI,shape_lsc,water_mask,n120_surface_temp)
 
                 QC_Map = np.zeros((shape_lsc[1], shape_lsc[0]))
                 QC_Map[np.isnan(temp_surface_sharpened)] = 1
@@ -1717,8 +1702,7 @@ def SEBALcode(number,inputExcel):
 	 											
                 # Save the thermal VIIRS data 												
                 save_GeoTiff_proy(lsc, data_VIIRS, proyVIIRS_fileName, shape_lsc, nband=1)							
-               
-                Thermal_Sharpening_not_needed = 0
+
  
         # 2)	Get the VIIRS Quality map 100m	
 		
@@ -1741,52 +1725,54 @@ def SEBALcode(number,inputExcel):
                 else:
                     data_VIIRS_QC = np.zeros((shape_lsc[1], shape_lsc[0]))	
 
+                ##### VIIRS brightness temperature to land surface temperature
+           
+                # Create cloud mask VIIRS (100m)
+                data_VIIRS[NDVI==0]=0
+                Cloud_Mask_VIIRS=np.zeros((shape_lsc[1], shape_lsc[0]))
+                Cloud_Mask_VIIRS[data_VIIRS_QC!=0]=1
+                save_GeoTiff_proy(lsc, Cloud_Mask_VIIRS, proyVIIRS_Cloud_Mask_fileName, shape_lsc, nband=1)
+                
+                # Create total VIIRS and PROBA-V cloud mask (100m)       
+                QC_Map=np.zeros((shape_lsc[1], shape_lsc[0]))
+                QC_Map=np.where(np.logical_or(data_VIIRS_QC==1, Cloud_Mask_PROBAV==1),1,0) 
+                
+                # Set the conditions for the brightness temperature (100m)
+                term_data=data_VIIRS
+                term_data=np.where(data_VIIRS>=250, data_VIIRS,0)
+                brightness_temp=np.zeros((shape_lsc[1], shape_lsc[0]))
+                brightness_temp=np.where(Cloud_Mask_VIIRS==0,term_data,np.nan)
+    
+                # Constants
+                k1=606.399172
+                k2=1258.78
+                L_lambda_b10_100=((2*6.63e-34*(3.0e8)**2)/((11.45e-6)**5*(np.exp((6.63e-34*3e8)/(1.38e-23*(11.45e-6)*brightness_temp))-1)))*1e-6
+            
+                # Get Temperature for 100 and 375m resolution
+                Temp_TOA_100 = Get_Thermal(L_lambda_b10_100,Rp,Temp_inst,tau_sky,tir_emis,k1,k2) 
+           
+                # Conditions for surface temperature (100m)
+                n120_surface_temp=np.where(QC_Map==1,np.nan,Temp_TOA_100)
+                n120_surface_temp=np.where(n120_surface_temp<=250,np.nan,Temp_TOA_100)
+                n120_surface_temp=np.where(n120_surface_temp>450,np.nan,Temp_TOA_100)
+               
         except:
              assert "Please check the VIIRS input path"
  
         # ------ Upscale TIR_Emissivity_PROBAV, cloud mask PROBAV and NDVI for LST calculation at 375m resolution ----
-      
+        if Thermal_Sharpening_not_needed == 1:
+            temp_surface_sharpened = n120_surface_temp
+            
         if Thermal_Sharpening_not_needed == 0:      
-
-            ##### VIIRS brightness temperature to land surface temperature
-       
-            # Create cloud mask VIIRS (100m)
-            data_VIIRS[NDVI==0]=0
-            Cloud_Mask_VIIRS=np.zeros((shape_lsc[1], shape_lsc[0]))
-            Cloud_Mask_VIIRS[data_VIIRS_QC!=0]=1
-            save_GeoTiff_proy(lsc, Cloud_Mask_VIIRS, proyVIIRS_Cloud_Mask_fileName, shape_lsc, nband=1)
             
-            # Create total VIIRS and PROBA-V cloud mask (100m)       
-            QC_Map=np.zeros((shape_lsc[1], shape_lsc[0]))
-            QC_Map=np.where(np.logical_or(data_VIIRS_QC==1, Cloud_Mask_PROBAV==1),1,0) 
-            
-            # Set the conditions for the brightness temperature (100m)
-            term_data=data_VIIRS
-            term_data=np.where(data_VIIRS>=250, data_VIIRS,0)
-            brightness_temp=np.zeros((shape_lsc[1], shape_lsc[0]))
-            brightness_temp=np.where(Cloud_Mask_VIIRS==0,term_data,np.nan)
-
-            # Constants
-            k1=606.399172
-            k2=1258.78
-            L_lambda_b10_100=((2*6.63e-34*(3.0e8)**2)/((11.45e-6)**5*(np.exp((6.63e-34*3e8)/(1.38e-23*(11.45e-6)*brightness_temp))-1)))*1e-6
-        
-            # Get Temperature for 100 and 375m resolution
-            Temp_TOA_100 = Get_Thermal(L_lambda_b10_100,Rp,Temp_inst,tau_sky,tir_emis,k1,k2) 
-       
-            # Conditions for surface temperature (100m)
-            n120_surface_temp=np.where(QC_Map==1,np.nan,Temp_TOA_100)
-            n120_surface_temp=np.where(n120_surface_temp<=250,np.nan,Temp_TOA_100)
-            n120_surface_temp=np.where(n120_surface_temp>450,np.nan,Temp_TOA_100)
-        
-            # Save the surface temperature of the VIIRS in 100m resolution
-            temp_surface_100_fileName_beforeTS = os.path.join(output_folder, 'Output_temporary','%s_%s_surface_temp_before_Thermal_Sharpening_%s_%s_%s.tif' %(sensor1, sensor2, res2, year, DOY))
-            save_GeoTiff_proy(lsc, n120_surface_temp, temp_surface_100_fileName_beforeTS, shape_lsc, nband=1)     												
-     
             print '---------------------------------------------------------'
             print '-------------------- Downscale VIIRS --------------------'
             print '---------------------------------------------------------'
 
+            # Save the surface temperature of the VIIRS in 100m resolution
+            temp_surface_100_fileName_beforeTS = os.path.join(output_folder, 'Output_temporary','%s_%s_surface_temp_before_Thermal_Sharpening_%s_%s_%s.tif' %(sensor1, sensor2, res2, year, DOY))
+            save_GeoTiff_proy(lsc, n120_surface_temp, temp_surface_100_fileName_beforeTS, shape_lsc, nband=1)     												
+ 
             ################################ Thermal Sharpening #####################################################
 
             # Upscale VIIRS and PROBA-V to 400m
@@ -1873,7 +1859,6 @@ def SEBALcode(number,inputExcel):
         Surf_albedo=np.where(QC_Map==1,np.nan,Surf_albedo)
         LAI=np.where(QC_Map==1,np.nan,LAI)
         vegt_cover=np.where(QC_Map==1,np.nan,vegt_cover)
-        SAVI=np.where(QC_Map==1,np.nan,SAVI)
 
     # ------------------------------------------------------------------------
     # ------------------------------------------------------------------------
@@ -1881,7 +1866,6 @@ def SEBALcode(number,inputExcel):
     
     if Image_Type == 3:
  
-
         print '---------------------------------------------------------'
         print '----------------- Calculate Vegetation data -------------'
         print '---------------------------------------------------------'
@@ -1893,7 +1877,7 @@ def SEBALcode(number,inputExcel):
         # 3 = RED
         # 4 = SWIR
       
-        # Check if a NDVI, SAVI, or Surface Albedo dataset is defined. If so use this one instead of the PROBAV otherwise PROBAV
+        # Check if a NDVI or Surface Albedo dataset is defined. If so use this one instead of the PROBAV otherwise PROBAV
         ws = wb['Additional_Input']
         # Check NDVI
         try:
@@ -1903,10 +1887,10 @@ def SEBALcode(number,inputExcel):
  
                 # Reproject and reshape users NDVI  
                 NDVI=Reshape_Reproject_Input_data(r'%s' %str(ws['B%d' % number].value),ndvi_fileName, proyDEM_fileName)		 														 
-                NDVI_PROBAV_MAX = np.nanmax(NDVI)
-                NDVI_PROBAV_SD =  np.nanstd(NDVI) 
-                print 'NDVI User max ' , NDVI_PROBAV_MAX
-                print 'NDVI User sd' , NDVI_PROBAV_SD	
+                NDVI_MAX = np.nanmax(NDVI)
+                NDVI_SD =  np.nanstd(NDVI) 
+                print 'NDVI User max ' , NDVI_MAX
+                print 'NDVI User sd' , NDVI_SD	
 
                 # Create Water mask based on PROBA-V             
                 water_mask = np.zeros((shape_lsc[1], shape_lsc[0])) 
@@ -1934,38 +1918,18 @@ def SEBALcode(number,inputExcel):
 		 														  
         except:                
             assert "Please check the PROBA-V path, was not able to create NDVI"
-												
 
-        # Check SAVI	
+        # Check Water Mask	            
         try:
-            if (ws['C%d' % number].value) is not None:					
-                # Output folder SAVI	defined by the user					
-                savi_fileName = os.path.join(output_folder, 'Output_vegetation', 'User_SAVI_%s_%s_%s.tif' %(res2, year, DOY))
-															
-                # Reproject and reshape users SAVI  															
-                SAVI=Reshape_Reproject_Input_data(r'%s' %str(ws['C%d' % number].value),savi_fileName,proyDEM_fileName)		 					
-
-            # if the users SAVI data cannot be reprojected than use the original MOD11 data as imported into SEBAL													
-            else:
-
-                # Calculate the MOD9 based on MODIS   
-                B1_modis = Open_reprojected_hdf(src_FileName_Ref, 11, epsg_to, 0.0001, proyDEM_fileName)
-
-                # Open and reproject B2            
-                B2_modis = Open_reprojected_hdf(src_FileName_Ref, 12, epsg_to, 0.0001, proyDEM_fileName)
- 
-                # Calculate SAVI               
-                SAVI = (B2_modis - B1_modis) /(B2_modis + B1_modis + L_SAVI) * (1+L_SAVI)
+            if (ws['C%d' % number].value) is not None:	
+				
+                # Overwrite the Water mask and change the output name					
+                water_mask_fileName = os.path.join(output_folder, 'Output_soil_moisture', 'User_Water_mask_temporary_%s_%s_%s.tif' %(res2, year, DOY))
+                water_mask = Reshape_Reproject_Input_data(r'%s' %str(ws['C%d' % number].value), water_mask_temp_fileName, proyDEM_fileName)		 														 
                 
-                # Define users SAVI output name	
-                savi_fileName = os.path.join(output_folder, 'Output_vegetation', '%s_SAVI_%s_%s_%s.tif' %(sensor1, res2, year, DOY))	
-															
-                # Save the PROBA-V SAVI as tif file															
-                save_GeoTiff_proy(lsc, SAVI, savi_fileName, shape_lsc, nband=1)																  
         except:
-             assert "Please check the PROBA-V path, was not able to create SAVI"       
-								
-								
+            assert "Please check the Water Mask input path"            
+																		
         # Check surface albedo		
         try:
             if (ws['D%d' % number].value) is not None:					
@@ -2012,7 +1976,7 @@ def SEBALcode(number,inputExcel):
 
 
         # Calculate the Fpar, TIR, Nitrogen, Vegetation Cover, LAI and b10_emissivity based on PROBA-V      
-        FPAR, tir_emis, Nitrogen_PROBAV, vegt_cover, LAI, b10_emissivity_PROBAV=Calc_vegt_para(NDVI, SAVI, water_mask, shape_lsc)
+        FPAR, tir_emis, Nitrogen_PROBAV, vegt_cover, LAI, b10_emissivity_PROBAV=Calc_vegt_para(NDVI, water_mask, shape_lsc)
 				
         # Save the paramaters as a geotiff
         save_GeoTiff_proy(lsc, water_mask, water_mask_fileName, shape_lsc, nband=1)
@@ -2053,15 +2017,13 @@ def SEBALcode(number,inputExcel):
                 proyMODIS_fileName_250 = os.path.join(output_folder, 'Output_MODIS','User_TB_%s_%s_%s.tif' %(res2, year, DOY))
   
                 # Reshape and reproject the Thermal data given by the user and resample this to a 375m resolution
-                temp_surface_sharpened = Reshape_Reproject_Input_data(r'%s' %str(ws['E%d' % number].value), proyMODIS_fileName_250, proyDEM_fileName)		 					
- 
-                Thermal_Sharpening_not_needed = 1	
+                n120_surface_temp = Reshape_Reproject_Input_data(r'%s' %str(ws['E%d' % number].value), proyMODIS_fileName_250, proyDEM_fileName)		 					
                 
                 # Divide temporal watermask in snow and water mask by using surface temperature
                 Snow_Mask_PROBAV, water_mask, ts_moist_veg_min, NDVI_max, NDVI_std = CalculateSnowWaterMask(NDVI,shape_lsc,water_mask,temp_surface_sharpened)
 
-                MODIS_QC = np.zeros((shape_lsc[1], shape_lsc[0]))
-                MODIS_QC[np.isnan(temp_surface_sharpened)] = 1
+                QC_Map = np.zeros((shape_lsc[1], shape_lsc[0]))
+                QC_Map[np.isnan(temp_surface_sharpened)] = 1
 
             else:
                 
@@ -2073,8 +2035,7 @@ def SEBALcode(number,inputExcel):
 	 											
                 # Save the thermal VIIRS data 												
                 save_GeoTiff_proy(lsc, n120_surface_temp, proyMODIS_fileName, shape_lsc, nband=1)							
-               
-                Thermal_Sharpening_not_needed = 0
+    
  
                 # 2)	Get the MODIS Quality map 1000m	
 									
@@ -2094,7 +2055,10 @@ def SEBALcode(number,inputExcel):
              assert "Please check the MODIS11 input path"
  
         # ------ Upscale TIR_Emissivity_PROBAV, cloud mask PROBAV and NDVI for LST calculation at 375m resolution ----
-      
+
+        if Thermal_Sharpening_not_needed == 1:   
+            temp_surface_sharpened = n120_surface_temp
+            
         if Thermal_Sharpening_not_needed == 0:      
 
             ##### MODIS brightness temperature to land surface temperature
@@ -2195,8 +2159,6 @@ def SEBALcode(number,inputExcel):
         Surf_albedo=np.where(QC_Map==1,np.nan,Surf_albedo)
         LAI=np.where(QC_Map==1,np.nan,LAI)
         vegt_cover=np.where(QC_Map==1,np.nan,vegt_cover)
-        SAVI=np.where(QC_Map==1,np.nan,SAVI)      
-        
       
     print '---------------------------------------------------------'
     print '----------------------- Meteo ---------------------------'
@@ -2460,17 +2422,18 @@ def SEBALcode(number,inputExcel):
     ts_dem,air_dens,Temp_corr=Correct_Surface_Temp(temp_surface_sharpened,Temp_lapse_rate,DEM_resh,Pair,dr,Transm_corr,cos_zn,Sun_elevation,deg2rad,QC_Map)    
        
     # Selection of hot and cold pixels
-    # Hot pixels
-    ts_dem_hot,hot_pixels = Calc_Hot_Pixels(ts_dem,QC_Map, water_mask,NDVI,NDVIhot_low,NDVIhot_high,Hot_Pixel_Constant)
        
     # Cold pixels vegetation
     ts_dem_cold_veg = Calc_Cold_Pixels_Veg(NDVI,NDVI_max,NDVI_std, QC_Map,ts_dem,Image_Type, Cold_Pixel_Constant)
-     
+
     # Cold pixels water						
     ts_dem_cold,cold_pixels,ts_dem_cold_mean = Calc_Cold_Pixels(ts_dem,water_mask,QC_Map,ts_dem_cold_veg,Cold_Pixel_Constant)
     if np.isnan(ts_dem_cold) == True:
         ts_dem_cold = Temp_inst
-   
+
+    # Hot pixels
+    ts_dem_hot,hot_pixels = Calc_Hot_Pixels(ts_dem,QC_Map, water_mask,NDVI,NDVIhot_low,NDVIhot_high,Hot_Pixel_Constant, ts_dem_cold)
+
     # Save files
     save_GeoTiff_proy(lsc, Temp_corr, temp_corr_fileName, shape_lsc, nband=1)				
     save_GeoTiff_proy(lsc, ts_dem, ts_dem_fileName, shape_lsc, nband=1)
@@ -2490,7 +2453,7 @@ def SEBALcode(number,inputExcel):
             Wind_24=1.5       
        
     # calculate windspeed at the blending height and the friction velocity by using the Raupach model or NDVI
-    Surf_roughness,u_200,ustar_1,disp_height=Calc_Wind_Speed_Friction(h_obst,Wind_inst,zx,LAI,NDVI,Surf_albedo,water_mask,surf_roughness_equation_used)
+    Surf_roughness,u_200,ustar_1=Calc_Wind_Speed_Friction(h_obst,Wind_inst,zx,LAI,NDVI,Surf_albedo,water_mask,surf_roughness_equation_used)
     save_GeoTiff_proy(lsc, Surf_roughness, surf_rough_fileName, shape_lsc, nband=1) 
        
     # Computation of surface roughness for momentum transport
@@ -2535,7 +2498,7 @@ def SEBALcode(number,inputExcel):
     EF_inst=Calc_instantaneous_ET_fraction(LE_inst,rn_inst,g_inst)
     
     # Daily Evaporation and advection factor
-    ETA_24, AF=Calc_ETact(esat_24,eact_24,EF_inst,Rn_24,Refl_rad_water,Lhv)
+    ETA_24, AF=Calc_ETact(esat_24,eact_24,EF_inst,Rn_24,Refl_rad_water,Lhv, Image_Type)
     
     # Bulk surface resistance (s/m):
     bulk_surf_resis_24=Calc_Bulk_surface_resistance(sl_es_24,Rn_24,Refl_rad_water,air_dens,esat_24,eact_24,rah_pm_act,ETA_24,Lhv,Psychro_c)
@@ -2848,12 +2811,15 @@ def Calc_Bulk_surface_resistance(sl_es_24,Rn_24,Refl_rad_water,air_dens,esat_24,
     return(bulk_surf_resis_24)
 
 #------------------------------------------------------------------------------
-def Calc_ETact(esat_24,eact_24,EF_inst,Rn_24,Refl_rad_water,Lhv):
+def Calc_ETact(esat_24, eact_24, EF_inst, Rn_24, Refl_rad_water, Lhv, Image_Type):
     """
     Function to calculate the daily evaporation
     """
-    # Advection factor ???
-    AF = 1 + 0.985 * (np.exp((esat_24 - eact_24) * 0.08) - 1.0) * EF_inst
+    # Advection factor
+    if Image_Type == 2:
+        AF = np.ones(Rn_24.shape)
+    else:
+        AF = 1 + 0.985 * (np.exp((esat_24 - eact_24) * 0.08) - 1.0) * EF_inst
     # Daily evapotranspiration:
     ETA_24 = EF_inst * AF * (Rn_24 - Refl_rad_water) / (Lhv * 1000) * 86400000
     ETA_24=ETA_24.clip(0,15.0)
@@ -2952,7 +2918,7 @@ def Calc_Wind_Speed_Friction(h_obst,Wind_inst,zx,LAI,NDVI,Surf_albedo,water_mask
     h_grass = 0.12   # Grass height (m)
     cd = 53          # Free parameter for displacement height, default = 20.6
     # 1) Raupach model
-    zom_Raupach,disp_height=Raupach_Model(h_obst,cd,LAI,Surf_albedo,water_mask,k_vk)
+    zom_Raupach=Raupach_Model(h_obst,cd,LAI)
 
     # 2) NDVI model
     zom_NDVI=NDVI_Model(NDVI,Surf_albedo,water_mask)
@@ -2971,24 +2937,34 @@ def Calc_Wind_Speed_Friction(h_obst,Wind_inst,zx,LAI,NDVI,Surf_albedo,water_mask
     print 'Wind speed at the blending height, u200 =', '%0.3f (m/s)' % np.mean(u_200)
     # Friction velocity (m/s):
     ustar_1 = k_vk * u_200 / np.log(200 / Surf_roughness)
-    return(Surf_roughness,u_200,ustar_1,disp_height)
+    return(Surf_roughness,u_200,ustar_1)
     
 #------------------------------------------------------------------------------
-def Raupach_Model(h_obst,cd,LAI,Surf_albedo,water_mask,k_vk):    
+def Raupach_Model(h_obst,cd,LAI):    
     """
-    Function for the Raupach model to calculate the surface roughness
-    """    
-    psi = np.log(2.0) - 1 + np.power(2.0, -1)  # Vegetation influence function
+    Function for the Raupach model to calculate the surface roughness (based on Raupach 1994)  
+    """   
+    # constants
+    cw = 2.0
+    LAIshelter = 2.5
     
-    # Displacement height:
-    disp_height = h_obst * (1 - (1 - np.exp(-np.power(cd * LAI, 0.5))) /
-                            np.power(cd * LAI, 0.5))
-    # Drag coefficient
-    Cs = np.power(k_vk, 2) / np.power(np.log((h_obst-disp_height) / 0.01) +
-                                      psi, 2)
-    ratio = np.power(Cs + 0.35 * LAI/2, 0.5)  # uh/u
-    zom_Raupach = (h_obst - disp_height) / np.exp(k_vk * ratio - psi)
-    return(zom_Raupach, disp_height)
+    # calculate psi
+    psi = np.log(cw) - 1 + np.power(2.0, -1)  # Vegetation influence function
+    
+    # Calculate Ustar divided by U
+    ustar_u = np.power((0.003+0.3*LAI/2), 0.5)
+    ustar_u[LAI<LAIshelter] = 0.3
+           
+    # calculate: 1 - d/hv      
+    inv_d_hv =np.power((1-np.exp(np.power(-1*(cd*LAI),0.5)))/(cd * LAI),0.5)
+              
+    # Calculate: surface roughness/hv           
+    zom_hv = inv_d_hv * np.exp(-0.41/ustar_u-psi)
+    
+    # Calculate: surface roughness
+    zom_Raupach = zom_hv * h_obst 
+    
+    return(zom_Raupach)
  
 #------------------------------------------------------------------------------
 def NDVI_Model(NDVI,Surf_albedo,water_mask):
@@ -3019,12 +2995,13 @@ def Correct_Surface_Temp(Surface_temp,Temp_lapse_rate,DEM_resh,Pair,dr,Transm_co
     #          Gsc * dr * Transm_corr * cos_zenith_flat) / (air_dens * 1004 * 0.050))
     ts_dem[ClipLandsat==1]=np.nan
     ts_dem[ts_dem==0]=np.nan
-    ts_dem=ts_dem.clip(273,350)         
+    ts_dem[ts_dem<273]=np.nan   
+    ts_dem[ts_dem>350]=np.nan                
   
     return(ts_dem,air_dens,Temp_corr)
  
 #------------------------------------------------------------------------------
-def Calc_Hot_Pixels(ts_dem,QC_Map, water_mask, NDVI,NDVIhot_low,NDVIhot_high,Hot_Pixel_Constant):
+def Calc_Hot_Pixels(ts_dem,QC_Map, water_mask, NDVI,NDVIhot_low,NDVIhot_high,Hot_Pixel_Constant, ts_dem_cold):
     """
     Function to calculates the hot pixels based on the surface temperature and NDVI
     """ 
@@ -3033,7 +3010,7 @@ def Calc_Hot_Pixels(ts_dem,QC_Map, water_mask, NDVI,NDVIhot_low,NDVIhot_high,Hot
     for_hot[NDVI >= NDVIhot_high] = 0.0
     for_hot[np.logical_or(water_mask != 0.0, QC_Map != 0.0)] = 0.0
     hot_pixels = np.copy(for_hot)
-    hot_pixels[for_hot < 285.0] = np.nan
+    hot_pixels[for_hot < ts_dem_cold] = np.nan
     ts_dem_hot_max = np.nanmax(hot_pixels)    # Max
     ts_dem_hot_mean = np.nanmean(hot_pixels)  # Mean
     ts_dem_hot_std = np.nanstd(hot_pixels)    # Standard deviation
@@ -3220,7 +3197,7 @@ def Get_Thermal(lambda_b10,Rp,Temp_inst,tau_sky,TIR_Emissivity,k1,k2):
                        
     return(Temp_TOA)                   
 #------------------------------------------------------------------------------
-def Calc_vegt_para(NDVI,SAVI,water_mask_temp,shape_lsc):
+def Calc_vegt_para(NDVI,water_mask_temp,shape_lsc):
     """
     Calculates the Fraction of PAR, Thermal infrared emissivity, Nitrogen, Vegetation Cover, LAI, b10_emissivity
     """
@@ -3234,9 +3211,7 @@ def Calc_vegt_para(NDVI,SAVI,water_mask_temp,shape_lsc):
     tir_emis[np.logical_and(NDVI < 0.125, water_mask_temp == 0.0)] = 0.92
 
     # Vegetation Index - Regression model from Bagheri et al. (2013)
-    VI_NDVI = 38.764 * np.square(NDVI) - 24.605 * NDVI + 5.8103
-    VI_SAVI = 6.3707 * np.square(SAVI) - 2.8503 * SAVI + 1.6335
-    VI = (VI_NDVI + VI_SAVI) / 2.0  # Average of computed from NDVI and SAVI
+    VI = 38.764 * np.square(NDVI) - 24.605 * NDVI + 5.8103
 
     # Nitrogen computation
     Nitrogen = np.copy(VI)
@@ -3253,13 +3228,8 @@ def Calc_vegt_para(NDVI,SAVI,water_mask_temp,shape_lsc):
     LAI_1[LAI_1 > 8] = 8.0
     LAI_2 = (9.519 * np.power(NDVI, 3) + 0.104 * np.power(NDVI, 2) +
              1.236 * NDVI - 0.257)
-    LAI_3 = 11.0 * np.power(SAVI, 3)
-    LAI_3[SAVI >= 0.817] = 6.0
-    LAI_4 = -np.log((0.69 - SAVI) / 0.59) / 0.91  # For South. Idaho, empirical
-    LAI_4[SAVI < 0.0] = 0.0
-    LAI_4[SAVI >= 0.689] = 6.0
 
-    LAI = (LAI_1 + LAI_2 + LAI_3 + LAI_4) / 4.0  # Average LAI
+    LAI = (LAI_1 + LAI_2) / 2.0  # Average LAI
     LAI[LAI < 0.001] = 0.001
 
     b10_emissivity = np.zeros((shape_lsc[1], shape_lsc[0]))
@@ -3283,7 +3253,7 @@ def Water_Mask(shape_lsc,Reflect):
 #------------------------------------------------------------------------------   
 def Calc_albedo(Reflect,path_radiance,Apparent_atmosf_transm):
     """
-    This function calculates and returns the Surface albedo, NDVI, and SAVI by using the refectance from the landsat image.
+    This function calculates and returns the Surface albedo, NDVI by using the refectance from the landsat image.
     """ 
     # Surface albedo:
     Surf_albedo = (0.254 * Reflect[:, :, 0] + 0.149 * Reflect[:, :, 1] +
@@ -3298,23 +3268,14 @@ def Calc_albedo(Reflect,path_radiance,Apparent_atmosf_transm):
 #------------------------------------------------------------------------------  
 def Calc_NDVI(Reflect):
     """
-    This function calculates and returns the Surface albedo, NDVI, and SAVI by using the refectance from the landsat image.
+    This function calculates and returns the Surface albedo, NDVI by using the refectance from the landsat image.
     """ 
     # Computation of Normalized Difference Vegetation Index (NDVI)
     NDVI = ((Reflect[:, :, 3] - Reflect[:, :, 2]) /
             (Reflect[:, :, 3] + Reflect[:, :, 2]))
 
     return(NDVI)
-				
-#------------------------------------------------------------------------------   
-def Calc_SAVI(Reflect,L):
-    """
-    This function calculates and returns the Surface albedo, NDVI, and SAVI by using the refectance from the landsat image.
-    """ 
-    # Computation of Soil Adjusted Vegetation Index (SAVI)
-    SAVI = (1 + L) * ((Reflect[:, :, 3] - Reflect[:, :, 2]) /
-                      (L + Reflect[:, :, 3] + Reflect[:, :, 2]))
-    return(SAVI)				
+							
 #------------------------------------------------------------------------------  
 def CalculateSnowWaterMask(NDVI,shape_lsc,water_mask_temp,Surface_temp):
    '''
@@ -3340,7 +3301,6 @@ def CalculateSnowWaterMask(NDVI,shape_lsc,water_mask_temp,Surface_temp):
    water_mask=np.copy(mask)
    
    return(snow_mask,water_mask,ts_moist_veg_min, NDVI_max, NDVI_std)
-       
     
 #------------------------------------------------------------------------------    
 def Landsat_Reflect(Bands,input_folder,Name_Landsat_Image,output_folder,shape_lsc,ClipLandsat,Lmax,Lmin,ESUN_L5,ESUN_L7,ESUN_L8,cos_zn,dr,Landsat_nr, proyDEM_fileName):
@@ -3399,7 +3359,7 @@ def Landsat_L_lambda(Lmin,Lmax,ls_data,index,Landsat_nr):
 #------------------------------------------------------------------------------   
 def Landsat_rho_lambda(L_lambda,ESUN,index,cos_zn,dr):
     """
-    Calculates the lambda from landsat
+    Calculates the rho from landsat
     """
     rho_lambda = np.pi * L_lambda / (ESUN[index] * cos_zn * dr)
     return(rho_lambda)

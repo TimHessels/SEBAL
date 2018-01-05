@@ -1913,9 +1913,12 @@ def main(number,inputExcel):
                 # Define users NDVI output name																
                 ndvi_fileName = os.path.join(output_folder, 'Output_vegetation', '%s_NDVI_%s_%s_%s.tif' %(sensor1, res2, year, DOY))
 		 													
-		        # Save the PROBA-V NDVI as tif file												
+		          # Save the PROBA-V NDVI as tif file												
                 save_GeoTiff_proy(lsc, NDVI, ndvi_fileName, shape_lsc, nband=1)
-		 														  
+                
+                if not 'MODIS_QC' in locals():
+                    MODIS_QC = np.zeros((shape_lsc[1], shape_lsc[0]))
+                    MODIS_QC[np.logical_and(NDVI<-0.2, NDVI>1.0)] = 1								  
         except:                
             assert "Please check the PROBA-V path, was not able to create NDVI"
 
@@ -1969,8 +1972,13 @@ def main(number,inputExcel):
                 # Define users surface albedo output name	             
                 surface_albedo_fileName = os.path.join(output_folder, 'Output_vegetation','%s_surface_albedo_%s_%s_%s.tif' %(sensor1, res2, year, DOY))
 
-			   # Save the PROBA-V surface albedo as tif file
-                save_GeoTiff_proy(lsc, Surf_albedo, surface_albedo_fileName, shape_lsc, nband=1)																  
+                # Save the PROBA-V surface albedo as tif file
+                save_GeoTiff_proy(lsc, Surf_albedo, surface_albedo_fileName, shape_lsc, nband=1)		
+
+                if not 'MODIS_QC' in locals():
+                    MODIS_QC = np.zeros((shape_lsc[1], shape_lsc[0]))
+                    MODIS_QC[np.logical_and(Surf_albedo<0.0, Surf_albedo>1.0)] = 1			
+														  
         except:
              assert "Please check the PROBA-V path, was not able to create Albedo"       
 
@@ -2030,10 +2038,10 @@ def main(number,inputExcel):
                 # Calculate the MOD9 based on MODIS    
                 n120_surface_temp = Open_reprojected_hdf(src_FileName_LST, 0, epsg_to, 0.02, proyDEM_fileName) 
               
-                # Define the thermal VIIRS output name
+                # Define the thermal MODIS output name
                 proyMODIS_fileName = os.path.join(output_folder, 'Output_MODIS','%s_TB_%s_%s_%s.tif' %(sensor2, res2, year, DOY))
 	 											
-                # Save the thermal VIIRS data 												
+                # Save the thermal MODIS data 												
                 save_GeoTiff_proy(lsc, n120_surface_temp, proyMODIS_fileName, shape_lsc, nband=1)							
     
  
@@ -2042,17 +2050,25 @@ def main(number,inputExcel):
                 # Calculate the MOD9 based on MODIS   
                 g=gdal.Open(src_FileName_LST, gdal.GA_ReadOnly)
                 
-                MODIS_QC = Open_reprojected_hdf(src_FileName_LST, 1, epsg_to, 1, proyDEM_fileName) 
+                MODIS_QC_LST = Open_reprojected_hdf(src_FileName_LST, 1, epsg_to, 1, proyDEM_fileName) 
                 
                 # Define QC 
-                MODIS_QC[np.logical_and(np.logical_and(MODIS_QC==5, MODIS_QC==17), MODIS_QC==21)] = 0
-                MODIS_QC[MODIS_QC != 0] = 1                        
-                
-                # Save the reprojected VIIRS dataset QC
-                save_GeoTiff_proy(lsc, MODIS_QC, proyMODIS_QC_fileName, shape_lsc, nband=1)
-        
+                MODIS_QC_LST[np.logical_and(np.logical_and(MODIS_QC_LST==5, MODIS_QC_LST==17), MODIS_QC_LST==21)] = 0
+                             
+                if not 'MODIS_QC' in locals():      
+                     MODIS_QC = np.zeros((shape_lsc[1], shape_lsc[0]))                   
+                    
+                MODIS_QC[MODIS_QC_LST != 0] = 1                        
+                      
         except:
              assert "Please check the MODIS11 input path"
+
+        # Create total VIIRS and PROBA-V Quality mask (100m)       
+        QC_Map=np.zeros((shape_lsc[1], shape_lsc[0]))
+        QC_Map=np.where(MODIS_QC==1,1,0) 
+
+        # Save the reprojected VIIRS dataset QC
+        save_GeoTiff_proy(lsc, MODIS_QC, proyMODIS_QC_fileName, shape_lsc, nband=1)
  
         # ------ Upscale TIR_Emissivity_PROBAV, cloud mask PROBAV and NDVI for LST calculation at 375m resolution ----
 
@@ -2062,11 +2078,7 @@ def main(number,inputExcel):
         if Thermal_Sharpening_not_needed == 0:      
 
             ##### MODIS brightness temperature to land surface temperature
-                  
-            # Create total VIIRS and PROBA-V cloud mask (100m)       
-            QC_Map=np.zeros((shape_lsc[1], shape_lsc[0]))
-            QC_Map=np.where(MODIS_QC==1,1,0) 
-                    
+                                      
             # Conditions for surface temperature (100m)
             n120_surface_temp=np.where(QC_Map==1,np.nan,n120_surface_temp)
             n120_surface_temp[n120_surface_temp<273] = np.nan

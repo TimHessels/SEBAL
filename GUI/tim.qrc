@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="newPrefix">
+    <file>ihe-delft-logo-resize.jpg</file>
+    <file>logoSEBAL-resize.png</file>
+  </qresource>
+</RCC>

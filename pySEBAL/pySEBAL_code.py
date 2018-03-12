@@ -1683,8 +1683,8 @@ def main(number,inputExcel):
                 # Divide temporal watermask in snow and water mask by using surface temperature
                 Snow_Mask_PROBAV, water_mask, ts_moist_veg_min, NDVI_max, NDVI_std = CalculateSnowWaterMask(NDVI,shape_lsc,water_mask,n120_surface_temp)
 
-                QC_Map = np.zeros((shape_lsc[1], shape_lsc[0]))
-                QC_Map[np.isnan(temp_surface_sharpened)] = 1
+                data_VIIRS_QC = np.zeros((shape_lsc[1], shape_lsc[0]))
+                data_VIIRS_QC[np.isnan(temp_surface_sharpened)] = 1
 
             else:
                 # Define the VIIRS thermal data name
@@ -1717,25 +1717,25 @@ def main(number,inputExcel):
                                                    VIIRS_data_name, proyDEM_fileName)
 					 												
                     # Open VIIRS Quality data																	
-                    data_VIIRS_QC = VIIRS.GetRasterBand(1).ReadAsArray()
+                    data_VIIRS_QC_temp = VIIRS.GetRasterBand(1).ReadAsArray()
 
                     # Save the reprojected VIIRS dataset QC
                     save_GeoTiff_proy(lsc, data_VIIRS_QC, proyVIIRS_QC_fileName, shape_lsc, nband=1)
         
                 else:
-                    data_VIIRS_QC = np.zeros((shape_lsc[1], shape_lsc[0]))	
+                    data_VIIRS_QC_temp = np.zeros((shape_lsc[1], shape_lsc[0]))	
 
                 ##### VIIRS brightness temperature to land surface temperature
            
                 # Create cloud mask VIIRS (100m)
                 data_VIIRS[NDVI==0]=0
                 Cloud_Mask_VIIRS=np.zeros((shape_lsc[1], shape_lsc[0]))
-                Cloud_Mask_VIIRS[data_VIIRS_QC!=0]=1
+                Cloud_Mask_VIIRS[data_VIIRS_QC_temp!=0]=1
                 save_GeoTiff_proy(lsc, Cloud_Mask_VIIRS, proyVIIRS_Cloud_Mask_fileName, shape_lsc, nband=1)
                 
                 # Create total VIIRS and PROBA-V cloud mask (100m)       
-                QC_Map=np.zeros((shape_lsc[1], shape_lsc[0]))
-                QC_Map=np.where(np.logical_or(data_VIIRS_QC==1, Cloud_Mask_PROBAV==1),1,0) 
+                data_VIIRS_QC=np.zeros((shape_lsc[1], shape_lsc[0]))
+                data_VIIRS_QC=np.where(np.logical_or(data_VIIRS_QC_temp==1, Cloud_Mask_PROBAV==1),1,0) 
                 
                 # Set the conditions for the brightness temperature (100m)
                 term_data=data_VIIRS

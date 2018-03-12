@@ -17,7 +17,7 @@ import glob
 from netCDF4 import Dataset
 import warnings
 
-import SEBAL.pySEBAL.pySEBAL_code as SEBAL
+import SEBAL
 
 def main():
        
@@ -41,7 +41,7 @@ def main():
 ################################################# PreHANTS part 1 ##################################################		
 ####################################################################################################################
 
-    VegetationExcel =r"G:\PreSEBAL_test_SriLanka\Excel_PreSEBAL_v1_0.xlsx" # This excel defines the p and c factor and vegetation height.
+    VegetationExcel =r"X:\Excel_in_test_4\Vegetation height model.xlsx"  # This excel defines the p and c factor and vegetation height.
 
 ####################################################################################################################   
 ################################################# PreHANTS part 2 ##################################################		
@@ -63,7 +63,7 @@ def main():
     
     ######################## Load Excels ##########################################	
     # Open Excel workbook for SEBAL inputs
-    wb = load_workbook(inputExcel, data_only=True)
+    wb = load_workbook(inputExcel)
 				
     # Get length of EXCEL sheet
     ws = wb['General_Input']	
@@ -728,15 +728,15 @@ def main():
             
                     # Calculate surface albedo based on PROBA-V
                     Surface_Albedo_PROBAV = 0.219 * spectral_reflectance_PROBAV[:, :, 1] + 0.361 * spectral_reflectance_PROBAV[:, :, 2] + 0.379 * spectral_reflectance_PROBAV[:, :, 3] + 0.041 * spectral_reflectance_PROBAV[:, :, 4]
-                               
+                        
+                    # Create Water mask based on PROBA-V             
+                    water_mask_temp = np.zeros((shape[1], shape[0])) 
+                    water_mask_temp[np.logical_and(spectral_reflectance_PROBAV[:, :, 2] >= spectral_reflectance_PROBAV[:, :, 3],data_DEM>0)]=1
+       
                     # Calculate the NDVI based on PROBA-V     
                     n218_memory = spectral_reflectance_PROBAV[:, :, 2] + spectral_reflectance_PROBAV[:, :, 3]
                     NDVI = np.zeros((shape[1], shape[0]))
                     NDVI[n218_memory != 0] =  ( spectral_reflectance_PROBAV[:, :, 3][n218_memory != 0] - spectral_reflectance_PROBAV[:, :, 2][n218_memory != 0] )/ ( spectral_reflectance_PROBAV[:, :, 2][n218_memory != 0] + spectral_reflectance_PROBAV[:, :, 3][n218_memory != 0] )
- 
-                    # Create Water mask based on PROBA-V             
-                    water_mask_temp = np.zeros((shape[1], shape[0])) 
-                    water_mask_temp[np.logical_and(np.logical_and(NDVI<0.1,data_DEM>0),Surface_Albedo_PROBAV<0.2)]=1
     
                     # Save Albedo for PROBA-V		
                     SEBAL.save_GeoTiff_proy(dest, Surface_Albedo_PROBAV, Albedo_FileName, shape, nband=1)	  
@@ -998,7 +998,7 @@ def main():
     delta = float(ws_para['D7'].value) # small positive number e.g. 0.1 to supress high amplitudes
     dod = float(ws_para['D8'].value) # degree of overdeterminedness (iteration stops if number of points reaches the minimum required for curve fitting, plus dod). This is a safety measure
 
-    from SEBAL.hants import wa_gdal 
+    from hants import wa_gdal 
     # Run
     wa_gdal.run_HANTS(input_folder_HANTS_THERM, name_format,
                       start_date, end_date, latlimVIIRS, lonlimVIIRS, cellsizeVIIRS, nc_path_TB,
@@ -1030,7 +1030,7 @@ def main():
     delta = float(ws_para['C7'].value) # small positive number e.g. 0.1 to supress high amplitudes
     dod = float(ws_para['C8'].value) # degree of overdeterminedness (iteration stops if number of points reaches the minimum required for curve fitting, plus dod). This is a safety measure
 
-    from SEBAL.hants import wa_gdal 
+    from hants import wa_gdal 
     # Run
     wa_gdal.run_HANTS(input_folder_HANTS_VAR, name_format,
                       start_date, end_date, latlim, lonlim, cellsize, nc_path_ndvi,
@@ -1045,10 +1045,10 @@ def main():
     # Define paths for NDVI
     input_folder_HANTS_VAR = os.path.join(temp_folder_PreSEBAL, VAR)
     name_format = '%s_PROBAV_{0}.tif' %VAR
-    nc_path_albedo = os.path.join(input_folder_HANTS_VAR,'%s_NC.nc' %VAR)
+    nc_path_albedo = os.path.join(temp_folder_PreSEBAL,'%s_NC.nc' %VAR)
     
     # Create Output folder
-    rasters_path_out = os.path.join(temp_folder_PreSEBAL, VAR + "_HANTS")
+    rasters_path_out = os.path.join(output_folder_PreSEBAL, VAR + "_HANTS")
     if not os.path.exists(rasters_path_out):
         os.mkdir(rasters_path_out)
         
@@ -1063,7 +1063,7 @@ def main():
     delta = float(ws_para['B7'].value) # small positive number e.g. 0.1 to supress high amplitudes
     dod = float(ws_para['B8'].value) # degree of overdeterminedness (iteration stops if number of points reaches the minimum required for curve fitting, plus dod). This is a safety measure
 
-    from SEBAL.hants import wa_gdal 
+    from hants import wa_gdal 
     # Run
     wa_gdal.run_HANTS(input_folder_HANTS_VAR, name_format,
                       start_date, end_date, latlim, lonlim, cellsize, nc_path_albedo,
@@ -1101,7 +1101,7 @@ def main():
         
     for i in range(0,int(np.shape(time)[0])):
         time_now = time[i]
-        data = fh.variables['outliers'][:,:,i] 
+        data = fh.variables['outliers'][i,:,:] 
         geo = tuple([minimum_lon, diff_lon, 0, maximum_lat, 0, diff_lat]) 
         name_out = os.path.join(output_folder_HANTS_outliers_PROBAV, 'Outliers_PROBAV_%s.tif' %time_now)      
         SEBAL.save_GeoTiff_proy(dest, data, name_out, shape, nband=1)	        
@@ -1301,10 +1301,10 @@ def main():
         
     for i in range(0,int(np.shape(time)[0])):
         time_now = time[i]
-        data = fh.variables['outliers'][:,:,i] 
+        data = fh.variables['outliers'][i,:,:] 
         geo = tuple([minimum_lon, diff_lon, 0, maximum_lat, 0, diff_lat]) 
         name_out = os.path.join(output_folder_HANTS_outliers_VIIRS, 'Outliers_VIIRS_%s.tif' %time_now)      
-        SEBAL.save_GeoTiff_proy(dest, data, name_out, shape, nband=1)	        
+        SEBAL.save_GeoTiff_proy(dest, data[:,:,i], name_out, shape, nband=1)	        
  
     ############################################# Create end thermal #########################################
         
@@ -1367,19 +1367,19 @@ def main():
                 Array_VIIRS_original_mask_nan_flatten[Array_VIIRS_original_mask_nan_flatten>350] = np.nan
                       
                 # Remove the nan values (if there is a nan in one of the arrays remove also the same value in the other array)                                     
-                Array_VIIRS_original_mask_no_nan_flatten = Array_VIIRS_original_mask_nan_flatten[np.logical_or(~np.isnan(Array_VIIRS_original_mask_nan_flatten),~np.isnan(Array_VIIRS_HANTS_mask_nan_flatten))]
-                Array_VIIRS_HANTS_mask_no_nan_flatten = Array_VIIRS_HANTS_mask_nan_flatten[np.logical_or(~np.isnan(Array_VIIRS_original_mask_nan_flatten),~np.isnan(Array_VIIRS_HANTS_mask_nan_flatten))]
+                Array_VIIRS_original_mask_nan_flatten = Array_VIIRS_original_mask_nan_flatten[~np.isnan(Array_VIIRS_original_mask_nan_flatten)]
+                Array_VIIRS_HANTS_mask_nan_flatten = Array_VIIRS_HANTS_mask_nan_flatten[~np.isnan(Array_VIIRS_HANTS_mask_nan_flatten)]
  
                 # Remove all zero values
-                Array_VIIRS_original_mask_nan_flatten_without_zero =Array_VIIRS_original_mask_no_nan_flatten[Array_VIIRS_original_mask_no_nan_flatten>0]
-             
+                Array_VIIRS_original_mask_nan_flatten_without_zero =Array_VIIRS_original_mask_nan_flatten[Array_VIIRS_original_mask_nan_flatten>0]
+
                 # Caluculate the value of the 40 and 90 percent percentiles of the original arrays good pixels
                 Array_VIIRS_original_mask_value_cold = np.nanpercentile(Array_VIIRS_original_mask_nan_flatten_without_zero,40)
                 Array_VIIRS_original_mask_value_hot = np.nanpercentile(Array_VIIRS_original_mask_nan_flatten_without_zero,90)
 
                 # Delete the colder and hotter pixel values in both 1D arrays (this is to exclude large areas of seas)
-                Array_VIIRS_HANTS_mask_nan_flatten_exc_coldest = Array_VIIRS_HANTS_mask_no_nan_flatten[np.logical_and(Array_VIIRS_original_mask_no_nan_flatten > Array_VIIRS_original_mask_value_cold,Array_VIIRS_original_mask_no_nan_flatten < Array_VIIRS_original_mask_value_hot)]
-                Array_VIIRS_original_mask_nan_flatten_exc_coldest = Array_VIIRS_original_mask_no_nan_flatten[np.logical_and(Array_VIIRS_original_mask_no_nan_flatten > Array_VIIRS_original_mask_value_cold,Array_VIIRS_original_mask_no_nan_flatten < Array_VIIRS_original_mask_value_hot)]
+                Array_VIIRS_HANTS_mask_nan_flatten_exc_coldest = Array_VIIRS_HANTS_mask_nan_flatten[np.logical_and(Array_VIIRS_original_mask_nan_flatten > Array_VIIRS_original_mask_value_cold,Array_VIIRS_original_mask_nan_flatten < Array_VIIRS_original_mask_value_hot)]
+                Array_VIIRS_original_mask_nan_flatten_exc_coldest = Array_VIIRS_original_mask_nan_flatten[np.logical_and(Array_VIIRS_original_mask_nan_flatten > Array_VIIRS_original_mask_value_cold,Array_VIIRS_original_mask_nan_flatten < Array_VIIRS_original_mask_value_hot)]
                 
                 #Calculate the mean of those arrays
                 Ave_VIIRS_HANTS = np.nanmean(Array_VIIRS_HANTS_mask_nan_flatten_exc_coldest)
@@ -1740,7 +1740,7 @@ def main():
     sheet_out_dir = os.path.dirname(inputExcel) 
     sheet_out_file_name = os.path.join(sheet_out_dir, sheet_out_name)
     
-    for output_name_run in VIIRS_Dict.keys():
+    for output_name_run in VIIRS_Dict.keys()[2:4]:
         
         # Get General parameters
         Row_number = VIIRS_Dict[output_name_run][0]

@@ -13,9 +13,8 @@ This module contains a compilation of scripts and functions to run pySEBAL
 """
 
 
-from .pySEBAL_code import main as pySEBAL
-from SEBAL.pySEBAL import pySEBAL_input_LANDSAT
+from .EESEBAL_code import main as EESEBAL
 
-__all__ = ['pySEBAL', 'pySEBAL_input_LANDSAT']
+__all__ = ['EESEBAL']
 
 __version__ = '0.1'

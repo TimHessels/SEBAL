@@ -16,35 +16,33 @@ import shutil
 import glob
 from netCDF4 import Dataset
 import warnings
+from pyproj import Proj, transform
 
 import SEBAL.pySEBAL.pySEBAL_code as SEBAL
 
-def main():
+def main_1():
 
 ####################################################################################################################
-############################################# CREATE INPUT FOR SEBAL RUN ###########################################
+############################################# CREATE INPUT FOR preSEBAL RUN ########################################
 ####################################################################################################################
 
 ####################################################################################################################
-##################################################### PreHANTS ####################################################
+##################################################### PreSEBAL_1 ###################################################
 ####################################################################################################################
 
-# PreHANTS
+# PreSEBAL_1
 # Part 1: Define input by user
 # Part 2: Set parameters and output folder
-# Part 3: RUN SEBAL
-# Part 4: HANTS
-# Part 5: post HANTS
-# Part 6: Write output
+# Part 3: Calculate NDVI and Albedo based on PROBA-V
 
 ####################################################################################################################
-################################################# PreHANTS part 1 ##################################################
+#################################### part 1: Define input by user ##################################################
 ####################################################################################################################
 
     VegetationExcel =r"E:\Project_2\UAE\Excel\Excel_PreSEBAL_v1_0.xlsx" # This excel defines the p and c factor and vegetation height.
 
 ####################################################################################################################
-################################################# PreHANTS part 2 ##################################################
+################################# part 2: Set parameters and output folder #########################################
 ####################################################################################################################
 
     # Open Excel workbook used for Vegetation c and p factor conversions
@@ -54,12 +52,8 @@ def main():
     # Input for preSEBAL.py
     start_date = "%s" %str(ws_veg['B2'].value)
     end_date = "%s" %str(ws_veg['B3'].value)
-    inputExcel= r"%s" %str(ws_veg['B4'].value)               # The excel with all the SEBAL input data
-    LU_data_FileName = r"%s" %str(ws_veg['B5'].value)       # Path to Land Use map
+    inputExcel= r"%s" %str(ws_veg['B4'].value)              # The excel with all the SEBAL input data
     output_folder = r"%s" %str(ws_veg['B7'].value)
-
-    # optional paramater
-    DSSF_Folder= r"%s" %str(ws_veg['B6'].value)
 
     ######################## Load Excels ##########################################
     # Open Excel workbook for SEBAL inputs
@@ -87,27 +81,21 @@ def main():
 
     ######################## Create output folders  ##########################################
 
-    output_folder_PreSEBAL_SEBAL = os.path.join(output_folder,'PreSEBAL_SEBAL_out')
-    input_folder_HANTS = os.path.join(output_folder,'HANTS_in')
-    output_folder_PreSEBAL = os.path.join(output_folder,'PreSEBAL_out')
-    temp_folder_PreSEBAL = os.path.join(output_folder,'PreSEBAL_temp')
-    temp_folder_PreSEBAL_LST = os.path.join(temp_folder_PreSEBAL,'LST')
-    NDVI_outfolder = os.path.join(output_folder_PreSEBAL_SEBAL,'NDVI')
-    Albedo_outfolder = os.path.join(output_folder_PreSEBAL_SEBAL,'Albedo')
-    WaterMask_outfolder = os.path.join(output_folder_PreSEBAL_SEBAL,'Water_Mask')
-    LAI_outfolder = os.path.join(output_folder_PreSEBAL,'LAI')
-    ALBEDO_outfolder_end = os.path.join(output_folder_PreSEBAL,'ALBEDO')
-    NDVI_outfolder_end = os.path.join(output_folder_PreSEBAL,'NDVI')
-    WaterMask_outfolder_end = os.path.join(output_folder_PreSEBAL,'Water_Mask')
-    TRANS_outfolder = os.path.join(output_folder_PreSEBAL,'Transmissivity')
-    Surface_Temperature_outfolder = os.path.join(output_folder_PreSEBAL_SEBAL,'Surface_Temperature')
-    output_folder_HANTS_end_sharp = os.path.join(output_folder_PreSEBAL, 'LST_Sharpened')
-    output_folder_HANTS_end_Veg = os.path.join(output_folder_PreSEBAL, 'Vegetation_Height')
-    output_folder_p_factor =  os.path.join(output_folder_PreSEBAL, 'p_factor')
-    output_folder_LUE =  os.path.join(output_folder_PreSEBAL, 'LUE')
+    # Define main directories
+    output_folder_PreSEBAL_sub = os.path.join(output_folder,'PreSEBAL_SEBAL_out')         # outputs before HANTS
+    output_folder_PreSEBAL = os.path.join(output_folder,'PreSEBAL_out')                     # End outputs of preSEBAL
+    temp_folder_PreSEBAL = os.path.join(output_folder,'PreSEBAL_temp')                      # Temp outputs of preSEBAL
 
-    if not os.path.exists(output_folder_PreSEBAL_SEBAL):
-        os.makedirs(output_folder_PreSEBAL_SEBAL)
+    # Define sub results folders
+    NDVI_outfolder = os.path.join(output_folder_PreSEBAL_sub,'NDVI')
+    Albedo_outfolder = os.path.join(output_folder_PreSEBAL_sub,'Albedo')
+    WaterMask_outfolder = os.path.join(output_folder_PreSEBAL_sub,'Water_Mask')
+
+    # file name of the example dataset based on DEM
+    Example_fileName = os.path.join(temp_folder_PreSEBAL, "DEM_Example_Projection.tif")
+
+    if not os.path.exists(output_folder_PreSEBAL_sub):
+        os.makedirs(output_folder_PreSEBAL_sub)
     if not os.path.exists(output_folder_PreSEBAL):
         os.mkdir(output_folder_PreSEBAL)
     if not os.path.exists(temp_folder_PreSEBAL):
@@ -118,702 +106,290 @@ def main():
         os.makedirs(Albedo_outfolder)
     if not os.path.exists(WaterMask_outfolder):
         os.makedirs(WaterMask_outfolder)
-    if not os.path.exists(LAI_outfolder):
-        os.makedirs(LAI_outfolder)
-    if not os.path.exists(ALBEDO_outfolder_end):
-        os.makedirs(ALBEDO_outfolder_end)
-    if not os.path.exists(NDVI_outfolder_end):
-        os.makedirs(NDVI_outfolder_end)
-    if not os.path.exists(WaterMask_outfolder_end):
-        os.makedirs(WaterMask_outfolder_end)
-    if not os.path.exists(temp_folder_PreSEBAL_LST):
-        os.makedirs(temp_folder_PreSEBAL_LST)
-    if not os.path.exists(Surface_Temperature_outfolder):
-        os.makedirs(Surface_Temperature_outfolder)
-    if not os.path.exists(TRANS_outfolder):
-        os.makedirs(TRANS_outfolder)
-    if not os.path.exists(output_folder_HANTS_end_sharp):
-        os.mkdir(output_folder_HANTS_end_sharp)
-    if not os.path.exists(output_folder_HANTS_end_Veg):
-        os.mkdir(output_folder_HANTS_end_Veg)
-    if not os.path.exists(output_folder_p_factor):
-        os.mkdir(output_folder_p_factor)
-    if not os.path.exists(output_folder_LUE):
-        os.mkdir(output_folder_LUE)
 
     # Do not show warnings
     warnings.filterwarnings('ignore')
 
 ####################################################################################################################
-################################################### RUN SEBAL part 3 ###############################################
+########################## Calculate NDVI and Albedo based on PROBA-V part 3 #######################################
 ####################################################################################################################
 
-    ############################## Define General info ############################
-    for number in Kind_Of_Runs_Dict[2]: # Number defines the column of the inputExcel
-        print number
-        if not (SEBAL_RUNS[number]['PROBA_V_name'] == 'None' and SEBAL_RUNS[number]['VIIRS_name'] == 'None'):
-            Rp = 0.91                        # Path radiance in the 10.4-12.5 µm band (W/m2/sr/µm)
-            tau_sky = 0.866                  # Narrow band transmissivity of air, range: [10.4-12.5 µm]
-            surf_temp_offset = 3             # Surface temperature offset for water
+    for number in Kind_Of_Runs_Dict[2][:]: # Number defines the column of the inputExcel
 
-        ######################## Open General info from SEBAL Excel ###################
+        print number
+
+        ######################## Extract general data for VIIRS-PROBAV ##########################################
+
+        # Open the VIIRS_PROBAV_Input sheet
+        ws = wb['VIIRS_PROBAV_Input']
+
+        # Extract the name to the PROBA-V image from the excel file
+        Name_PROBAV_Image = '%s' %str(ws['D%d' % number].value)
+
+        ######################## Create Example tiff file based on DEM ##########################################
+
+        if not SEBAL_RUNS[number]['PROBA_V_name'] == 'None':
+
+            # Create the example file based on DEM
+            if not 'shape' in locals():
+
+                # Open the General_Input sheet
+                ws = wb['General_Input']
+
+                # Extract the Path to the DEM map from the excel file
+                DEM_fileName = '%s' %str(ws['E%d' % number].value) #'DEM_HydroShed_m'
+
+                # Extract the name of the thermal and quality VIIRS image from the excel file
+                Name_VIIRS_Image_TB = '%s' %str(ws['B%d' % number].value)
+
+                if not os.path.exists(Example_fileName):
+
+                    # Pixel size of the model
+                    pixel_spacing= 0.001
+
+                    # Open DEM and create Latitude and longitude files
+                    lat,lon,lat_fileName,lon_fileName=SEBAL.DEM_lat_lon(DEM_fileName, temp_folder_PreSEBAL)
+
+                    # Reproject from Geog Coord Syst to UTM -
+                    # 1) DEM - Original DEM coordinates is Geographic: lat, lon
+                    dest, ulx_dem, lry_dem, lrx_dem, uly_dem, epsg_to = reproject_dataset_to_example(DEM_fileName, pixel_spacing, 4326)
+
+                    # Open data
+                    data_DEM = dest.GetRasterBand(1).ReadAsArray()
+                    band = dest.GetRasterBand(1)   # Get the reprojected dem band
+                    ncol = dest.RasterXSize        # Get the reprojected dem column size
+                    nrow = dest.RasterYSize        # Get the reprojected dem row size
+                    shape=[ncol, nrow]
+
+                    # Save file
+                    SEBAL.save_GeoTiff_proy(dest, data_DEM, Example_fileName, shape, nband = 1)
+
+                else:
+                    dest = gdal.Open(Example_fileName)
+                    band = dest.GetRasterBand(1)   # Get the reprojected dem band
+                    ncol = dest.RasterXSize        # Get the reprojected dem column size
+                    nrow = dest.RasterYSize        # Get the reprojected dem row size
+                    shape=[ncol, nrow]
+
+       ############################ Open General info from SEBAL Excel ###########################
 
             # Open the General_Input sheet
             ws = wb['General_Input']
 
             # Extract the input and output folder, and Image type from the excel file
             input_folder = str(ws['B%d' % number].value)
-            Image_Type = int(2)                              # Type of Image (1=Landsat & 2 = VIIRS & GLOBA-V)
 
-            # Extract the Path to the DEM map from the excel file
-            DEM_fileName = '%s' %str(ws['E%d' % number].value) #'DEM_HydroShed_m'
+            # Get the day and time from the PROBA-V
+            Band_PROBAVhdf_fileName = os.path.join(input_folder, '%s.HDF5' % (Name_PROBAV_Image))
+            g=gdal.Open(Band_PROBAVhdf_fileName, gdal.GA_ReadOnly)
 
-            # Open DEM and create Latitude and longitude files
-            lat,lon,lat_fileName,lon_fileName=SEBAL.DEM_lat_lon(DEM_fileName, temp_folder_PreSEBAL)
+            Meta_data = g.GetMetadata()
+            Date_PROBAV = str(Meta_data['LEVEL3_RADIOMETRY_BLUE_OBSERVATION_START_DATE'])
+            year = int(Date_PROBAV.split("-")[0])
+            month = int(Date_PROBAV.split("-")[1])
+            day = int(Date_PROBAV.split("-")[2])
+            Var_name = '%d%02d%02d' %(year, month, day)
+            DOY=datetime.strptime(Var_name,'%Y%m%d').timetuple().tm_yday
 
-        ######################## Extract general data for Landsat ##########################################
-            if Image_Type == 1:
+           ################################ Calculate NDVI from PROBAV ##########################################
 
-                # Open the Landsat_Input sheet
-                ws = wb['Landsat_Input']
+            # Define output maps
+            NDVI_FileName = os.path.join(NDVI_outfolder,'NDVI_PROBAV_%s.tif' %Var_name)
+            Albedo_FileName = os.path.join(Albedo_outfolder, 'Albedo_PROBAV_%s.tif' %Var_name)
+            water_mask_temp_FileName = os.path.join(WaterMask_outfolder, 'Water_Mask_PROBAV_%s.tif' %Var_name)
 
-                # Extract Landsat name, number and amount of thermal bands from excel file
-                Name_Landsat_Image = str(ws['B%d' % number].value)    # From glovis.usgs.gov
-                Landsat_nr = int(ws['C%d' % number].value)            # Type of Landsat (LS) image used (LS5, LS7, or LS8)
-                Bands_thermal = int(ws['D%d' %number].value)         # Number of LS bands to use to retrieve land surface
+            # Run code if output map not exists
+            if not os.path.exists(NDVI_FileName):
 
-                # Pixel size of the model
-                pixel_spacing=int(30)
+                # Define the bands that will be used
+                bands=['SM', 'B1', 'B2', 'B3', 'B4']  #'SM', 'BLUE', 'RED', 'NIR', 'SWIR'
 
-                # the path to the MTL file of landsat
-                Landsat_meta_fileName = os.path.join(input_folder, '%s_MTL.txt' % Name_Landsat_Image)
+                # Set the index number at 0
+                index=0
 
-                # read out the general info out of the MTL file in Greenwich Time
-                year, DOY, hour, minutes, UTM_Zone, Sun_elevation = SEBAL.info_general_metadata(Landsat_meta_fileName) # call definition info_general_metadata
-                date=datetime.strptime('%s %s'%(year,DOY), '%Y %j')
-                month = date.month
-                day = date.day
+                # create a zero array with the shape of the reprojected DEM file
+                data_PROBAV=np.zeros((shape[1], shape[0]))
+                spectral_reflectance_PROBAV=np.zeros([shape[1], shape[0], 5])
 
-                # define the kind of sensor and resolution of the sensor
-                sensor1 = 'L%d' % Landsat_nr
-                sensor2 = 'L%d' % Landsat_nr
-                sensor3 = 'L%d' % Landsat_nr
-                res1 = '30m'
-                res2 = '%sm' %int(pixel_spacing)
-                res3 = '30m'
+                # constants
+                n188_float=248       # Now it is 248, but we do not exactly know what this really means and if this is for constant for all images.
 
-                # Set the start parameter for determining transmissivity at 0
-                Determine_transmissivity = 0
+                # write the data one by one to the spectral_reflectance_PROBAV
+                for bandnmr in bands:
 
-        ######################## Extract general data for VIIRS-PROBAV ##########################################
-            if Image_Type == 2:
+                    # Translate the PROBA-V names to the Landsat band names
+                    Band_number = {'SM':7,'B1':8,'B2':10,'B3':9,'B4':11}
 
-                # Open the VIIRS_PROBAV_Input sheet
-                ws = wb['VIIRS_PROBAV_Input']
-
-                # Extract the name of the thermal and quality VIIRS image from the excel file
-                Name_VIIRS_Image_TB = '%s' %str(ws['B%d' % number].value)
-
-                # Extract the name to the PROBA-V image from the excel file
-                Name_PROBAV_Image = '%s' %str(ws['D%d' % number].value)    # Must be a tiff file
-
-                # Pixel size of the model
-                pixel_spacing=int(100)
-
-                # UTM Zone of the end results
-                UTM_Zone = float(ws['G%d' % number].value)
-
-                if not Name_VIIRS_Image_TB == 'None':
-
-                    #Get time from the VIIRS dataset name (IMPORTANT TO KEEP THE TEMPLATE OF THE VIIRS NAME CORRECT example: VIIRS_SVI05_npp_d20161021_t0956294_e1002080_b25822_c20161021160209495952_noaa_ops.tif)
-                    Total_Day_VIIRS = Name_VIIRS_Image_TB.split('_')[3]
-                    Total_Time_VIIRS = Name_VIIRS_Image_TB.split('_')[4]
-
-                    # Get the information out of the VIIRS name in GMT (Greenwich time)
-                    year = int(Total_Day_VIIRS[1:5])
-                    month = int(Total_Day_VIIRS[5:7])
-                    day = int(Total_Day_VIIRS[7:9])
-                    Startdate = '%d-%02d-%02d' % (year,month,day)
-                    DOY=datetime.strptime(Startdate,'%Y-%m-%d').timetuple().tm_yday
-                    hour = int(Total_Time_VIIRS[1:3])
-                    minutes = int(Total_Time_VIIRS[3:5])
-
-                    # If this is runned correctly, we can determine transmissivity
-                    ws = wb['Meteo_Input']
-                    Field_Radiation_24 = '%s' %str(ws['J%d' % number].value)
-                    Field_Trans_24 = '%s' %str(ws['K%d' % number].value)
-
-                    Determine_transmissivity = 1
-
-
-                # else use PROBA-V day but than no transmissivity can be determined for now
-                else:
-
-                    # Get the day and time from the PROBA-V
+                    # Open the dataset
                     Band_PROBAVhdf_fileName = os.path.join(input_folder, '%s.HDF5' % (Name_PROBAV_Image))
                     g=gdal.Open(Band_PROBAVhdf_fileName, gdal.GA_ReadOnly)
 
+                    # define data if it is not there yet
+                    if not 'Var_name' in locals():
+                        Meta_data = g.GetMetadata()
+                        Date_PROBAV = str(Meta_data['LEVEL3_RADIOMETRY_BLUE_OBSERVATION_START_DATE'])
+                        year = int(Date_PROBAV.split("-")[0])
+                        month = int(Date_PROBAV.split("-")[0])
+                        day = int(Date_PROBAV.split("-")[0])
+                        Var_name = '%d%02d%02d' %(year, month, day)
+
+
+                    # Open the .hdf file
+                    name_out = os.path.join(input_folder, '%s_test.tif' % (Name_PROBAV_Image))
+                    name_in = g.GetSubDatasets()[Band_number[bandnmr]][0]
+
+                    # Get environmental variable
+                    SEBAL_env_paths = os.environ["SEBAL"].split(';')
+                    GDAL_env_path = SEBAL_env_paths[0]
+                    GDAL_TRANSLATE = os.path.join(GDAL_env_path, 'gdal_translate.exe')
+
+                    # run gdal translate command
+                    FullCmd = '%s -of GTiff %s %s' %(GDAL_TRANSLATE, name_in, name_out)
+                    SEBAL.Run_command_window(FullCmd)
+
+                    # Open data
+                    dest_PV = gdal.Open(name_out)
+                    Data = dest_PV.GetRasterBand(1).ReadAsArray()
+                    dest_PV = None
+
+                    # Remove temporary file
+                    os.remove(name_out)
+
+                    # Define the x and y spacing
                     Meta_data = g.GetMetadata()
-                    Date_PROBAV = str(Meta_data['LEVEL3_RADIOMETRY_BLUE_OBSERVATION_START_DATE'])
-                    year = int(Date_PROBAV.split("-")[0])
-                    month = int(Date_PROBAV.split("-")[1])
-                    day = int(Date_PROBAV.split("-")[2])
-                    Var_name = '%d%02d%02d' %(year, month, day)
-                    DOY=datetime.strptime(Var_name,'%Y%m%d').timetuple().tm_yday
+                    Lat_Bottom = float(Meta_data['LEVEL3_GEOMETRY_BOTTOM_LEFT_LATITUDE'])
+                    Lat_Top = float(Meta_data['LEVEL3_GEOMETRY_TOP_RIGHT_LATITUDE'])
+                    Lon_Left = float(Meta_data['LEVEL3_GEOMETRY_BOTTOM_LEFT_LONGITUDE'])
+                    Lon_Right = float(Meta_data['LEVEL3_GEOMETRY_TOP_RIGHT_LONGITUDE'])
+                    Pixel_size = float((Meta_data['LEVEL3_GEOMETRY_VNIR_VAA_MAPPING']).split(' ')[-3])
 
-                    # We cannot determine transmissivity
-                    Determine_transmissivity = 0
+                    # Define the georeference of the PROBA-V data
+                    geo_PROBAV=[Lon_Left-0.5*Pixel_size, Pixel_size, 0, Lat_Top+0.5*Pixel_size, 0, -Pixel_size] #0.000992063492063
 
-                # Determine the transmissivity if possible (Determine_transmissivity = 1)
-                if Determine_transmissivity == 1:
+                    # Define the name of the output file
+                    PROBAV_data_name=os.path.join(input_folder, '%s_%s.tif' % (Name_PROBAV_Image,bandnmr))
+                    dst_fileName=os.path.join(input_folder, PROBAV_data_name)
 
-                    # Rounded difference of the local time from Greenwich (GMT) (hours):
-                    delta_GTM = round(np.sign(lon[int(np.shape(lon)[0]/2), int(np.shape(lon)[1]/2)]) * lon[int(np.shape(lon)[0]/2), int(np.shape(lon)[1]/2)] * 24 / 360)
-                    if np.isnan(delta_GTM) == True:
-                        delta_GTM = round(np.nanmean(lon) * np.nanmean(lon)  * 24 / 360)
+                    # create gtiff output with the PROBA-V band
+                    fmt = 'GTiff'
+                    driver = gdal.GetDriverByName(fmt)
 
-                    # Calculate local time
-                    hour += delta_GTM
-                    if hour < 0.0:
-                        day -= 1
-                        hour += 24
-                    if hour >= 24:
-                        day += 1
-                        hour -= 24
+                    dst_dataset = driver.Create(dst_fileName, int(Data.shape[1]), int(Data.shape[0]), 1,gdal.GDT_Float32)
+                    dst_dataset.SetGeoTransform(geo_PROBAV)
 
-                    # define the kind of sensor and resolution of the sensor
-                    sensor1 = 'PROBAV'
-                    sensor2 = 'VIIRS'
-                    res1 = '375m'
-                    res2 = '%sm' %int(pixel_spacing)
-                    res3 = '30m'
+                    # set the reference info
+                    srs = osr.SpatialReference()
+                    srs.SetWellKnownGeogCS("WGS84")
+                    dst_dataset.SetProjection(srs.ExportToWkt())
 
-        ######################## Extract general data from DEM file and create Slope map ##########################################
+                    # write the array in the geotiff band
+                    dst_dataset.GetRasterBand(1).WriteArray(Data)
+                    dst_dataset = None
 
-            # Variable date name
-            Var_name = '%d%02d%02d' %(year, month, day)
+                    # Open the PROBA-V band in SEBAL
+                    g=gdal.Open(PROBAV_data_name.replace("\\","/"))
 
-            # Reproject from Geog Coord Syst to UTM -
-            # 1) DEM - Original DEM coordinates is Geographic: lat, lon
-            dest, ulx_dem, lry_dem, lrx_dem, uly_dem, epsg_to = SEBAL.reproject_dataset(
-                           DEM_fileName, pixel_spacing, UTM_Zone=UTM_Zone)
-            band = dest.GetRasterBand(1)   # Get the reprojected dem band
-            ncol = dest.RasterXSize        # Get the reprojected dem column size
-            nrow = dest.RasterYSize        # Get the reprojected dem row size
-            shape=[ncol, nrow]
+                    # If the data cannot be opened, change the extension
+                    if g is None:
+                        PROBAV_data_name=os.path.join(input_folder, '%s_%s.tiff' % (Name_PROBAV_Image,bandnmr))
 
-            # Read out the DEM band and print the DEM properties
-            data_DEM = band.ReadAsArray(0, 0, ncol, nrow)
+                    # Reproject the PROBA-V band  to match DEM's resolution
+                    PROBAV, ulx, lry, lrx, uly, epsg_to = SEBAL.reproject_dataset_example(
+                                      PROBAV_data_name, Example_fileName)
 
-            # 2) Latitude file - reprojection
-            # reproject latitude to the landsat projection and save as tiff file
-            lat_rep, ulx_dem, lry_dem, lrx_dem, uly_dem, epsg_to = SEBAL.reproject_dataset(
-                            lat_fileName, pixel_spacing, UTM_Zone=UTM_Zone)
+                    # Open the reprojected PROBA-V band data
+                    data_PROBAV_DN = PROBAV.GetRasterBand(1).ReadAsArray(0, 0, ncol, nrow)
 
-            # Get the reprojected latitude data
-            lat_proy = lat_rep.GetRasterBand(1).ReadAsArray(0, 0, ncol, nrow)
+                    # Define the filename to store the cropped Landsat image
+                    dst_FileName = os.path.join(output_folder, 'Output_PROBAV','proy_PROBAV_%s.tif' % bandnmr)
 
-            # 3) Longitude file - reprojection
-            # reproject longitude to the landsat projection	 and save as tiff file
-            lon_rep, ulx_dem, lry_dem, lrx_dem, uly_dem, epsg_to = SEBAL.reproject_dataset(lon_fileName, pixel_spacing, UTM_Zone=UTM_Zone)
+                    # close the PROBA-V
+                    g=None
 
-            # Get the reprojected longitude data
-            lon_proy = lon_rep.GetRasterBand(1).ReadAsArray(0, 0, ncol, nrow)
+                    # If the band data is not SM change the DN values into PROBA-V values and write into the spectral_reflectance_PROBAV
+                    if bandnmr is not 'SM':
+                        data_PROBAV[:, :]=data_PROBAV_DN/2000
+                        spectral_reflectance_PROBAV[:, :, index]=data_PROBAV[:, :]
 
-            lon_fileName = os.path.join(temp_folder_PreSEBAL,'lon_resh.tif')
-            SEBAL.save_GeoTiff_proy(dest, lon_proy, lon_fileName, shape, nband=1)
+                    # If the band data is the SM band than write the data into the spectral_reflectance_PROBAV  and create cloud mask
+                    else:
+                        data_PROBAV[:, :]=data_PROBAV_DN
+                        Cloud_Mask_PROBAV=np.zeros((shape[1], shape[0]))
+                        Cloud_Mask_PROBAV[data_PROBAV[:,:]!=n188_float]=1
+                        spectral_reflectance_PROBAV[:, :, index]=Cloud_Mask_PROBAV
 
-            # Calculate slope and aspect from the reprojected DEM
-            deg2rad,rad2deg,slope,aspect=SEBAL.Calc_Gradient(data_DEM, pixel_spacing)
+                    # Change the spectral reflectance to meet certain limits
+                    spectral_reflectance_PROBAV[:, :, index]=np.where(spectral_reflectance_PROBAV[:, :, index]<=0,np.nan,spectral_reflectance_PROBAV[:, :, index])
+                    spectral_reflectance_PROBAV[:, :, index]=np.where(spectral_reflectance_PROBAV[:, :, index]>=150,np.nan,spectral_reflectance_PROBAV[:, :, index])
 
+                    # Go to the next index
+                    index=index+1
 
-            if Determine_transmissivity == 1:
+                ################################ Calculate Albedo from PROBAV ##########################################
 
-                # calculate the coz zenith angle
-                Ra_mountain_24, Ra_inst, cos_zn_resh, dr, phi, delta = SEBAL.Calc_Ra_Mountain(lon,DOY,hour,minutes,lon_proy,lat_proy,slope,aspect)
-                cos_zn_fileName = os.path.join(temp_folder_PreSEBAL,'cos_zn.tif')
-                SEBAL.save_GeoTiff_proy(dest, cos_zn_resh, cos_zn_fileName, shape, nband=1)
+                # Calculate surface albedo based on PROBA-V
+                Surface_Albedo_PROBAV = 0.219 * spectral_reflectance_PROBAV[:, :, 1] + 0.361 * spectral_reflectance_PROBAV[:, :, 2] + 0.379 * spectral_reflectance_PROBAV[:, :, 3] + 0.041 * spectral_reflectance_PROBAV[:, :, 4]
 
-                # Save the Ra
-                Ra_inst_fileName = os.path.join(temp_folder_PreSEBAL,'Ra_inst.tif')
-                SEBAL.save_GeoTiff_proy(dest, Ra_inst, Ra_inst_fileName, shape, nband=1)
-                Ra_mountain_24_fileName = os.path.join(temp_folder_PreSEBAL,'Ra_mountain_24.tif')
-                SEBAL.save_GeoTiff_proy(dest, Ra_mountain_24, Ra_mountain_24_fileName, shape, nband=1)
+                # Calculate the NDVI based on PROBA-V
+                n218_memory = spectral_reflectance_PROBAV[:, :, 2] + spectral_reflectance_PROBAV[:, :, 3]
+                NDVI = np.zeros((shape[1], shape[0]))
+                NDVI[n218_memory != 0] =  ( spectral_reflectance_PROBAV[:, :, 3][n218_memory != 0] - spectral_reflectance_PROBAV[:, :, 2][n218_memory != 0] )/ ( spectral_reflectance_PROBAV[:, :, 2][n218_memory != 0] + spectral_reflectance_PROBAV[:, :, 3][n218_memory != 0] )
 
-                #################### Calculate Transmissivity ##########################################
-                # Open the General_Input sheet
-                ws = wb['Meteo_Input']
+                ############################# Calculate Water Mask from PROBAV ##########################################
 
-                # Extract the method radiation value
-                Value_Method_Radiation_inst = '%s' %str(ws['L%d' % number].value)
+                # Create Water mask based on PROBA-V
+                water_mask_temp = np.zeros((shape[1], shape[0]))
+                water_mask_temp[np.logical_and(NDVI<0.0,Surface_Albedo_PROBAV<0.2)]=1
 
-                # Values to check if data is created
-                Check_Trans_inst = 0
-                Check_Trans_24 = 0
+                # Save Albedo for PROBA-V
+                SEBAL.save_GeoTiff_proy(dest, Surface_Albedo_PROBAV, Albedo_FileName, shape, nband=1)
 
-                '''  This is now turned of, so you need to fill in the instantanious transmissivity or Radiation
-                # Extract the data to the method of radiation
-                if int(Value_Method_Radiation_inst) == 2:
-                    Field_Radiation_inst = '%s' %str(ws['N%d' % number].value)
-
-                    if Field_Radiation_inst == 'None':
-
-                        # Instantanious Transmissivity files must be created
-                        Check_Trans_inst = 1
-
-                        # Calculate Transmissivity
-                        quarters_hours = np.ceil(minutes/30.) * 30
-                        hours_GMT = hour - delta_GTM
-                        if quarters_hours >= 60:
-                            hours_GMT += 1
-                            quarters_hours = 0
-
-                        # Define the instantanious LANDSAF file
-                        name_Landsaf_inst = 'HDF5_LSASAF_MSG_DSSF_MSG-Disk_%d%02d%02d%02d%02d.tif' %(year, month,day, hours_GMT, quarters_hours)
-                        file_Landsaf_inst = os.path.join(DSSF_Folder,name_Landsaf_inst)
-
-                        # Reproject the Ra_inst data to match the LANDSAF data
-                        Ra_inst_3Km_dest, ulx, lry, lrx, uly, epsg_to = SEBAL.reproject_dataset_example(Ra_inst_fileName, file_Landsaf_inst, method = 1)
-                        Ra_inst_3Km = Ra_inst_3Km_dest.GetRasterBand(1).ReadAsArray()
-                        Ra_inst_3Km[Ra_inst_3Km==0] = np.nan
-
-                        # Open the Rs LANDSAF data
-                        dest_Rs_inst_3Km = gdal.Open(file_Landsaf_inst)
-                        Rs_inst_3Km = dest_Rs_inst_3Km.GetRasterBand(1).ReadAsArray()
-                        Rs_inst_3Km = np.float_(Rs_inst_3Km)/10
-                        Rs_inst_3Km[Rs_inst_3Km<0]=np.nan
-
-                        # Get shape LANDSAF data
-                        shape_trans=[dest_Rs_inst_3Km.RasterXSize , dest_Rs_inst_3Km.RasterYSize ]
-
-                        # Calculate Transmissivity 3Km
-                        Transmissivity_3Km = Rs_inst_3Km/Ra_inst_3Km
-                        Transmissivity_3Km_fileName = os.path.join(output_folder_temp,'Transmissivity_3Km.tif')
-                        SEBAL.save_GeoTiff_proy(Ra_inst_3Km_dest, Transmissivity_3Km, Transmissivity_3Km_fileName, shape_trans, nband=1)
-
-                        # Reproject Transmissivity to match DEM (now this is done by using the nearest neighbour method)
-                        Transmissivity_inst_dest, ulx, lry, lrx, uly, epsg_to = SEBAL.reproject_dataset_example(Transmissivity_3Km_fileName, cos_zn_fileName, method = 3)
-                        Transmissivity_inst = Transmissivity_inst_dest.GetRasterBand(1).ReadAsArray()
-                        Transmissivity_inst[Transmissivity_inst>0.98] = 0.98
-                        Transmissivity_inst_fileName = os.path.join(TRANS_outfolder,'Transmissivity_inst_%s.tif' %Var_name)
-                        SEBAL.save_GeoTiff_proy(Transmissivity_inst_dest, Transmissivity_inst, Transmissivity_inst_fileName, shape, nband=1)
-
-                '''
-                # Extract the method radiation value
-                Value_Method_Radiation_24 = '%s' %str(ws['I%d' % number].value)
-
-                # Extract the data to the method of radiation
-                if int(Value_Method_Radiation_24) == 2:
-                    Field_Radiation_24 = '%s' %str(ws['K%d' % number].value)
-
-                    if Field_Radiation_24 == 'None':
-
-                        # Daily Transmissivity files must be created
-                        Check_Trans_24 = 1
-
-                        # Create times that are needed to calculate daily Rs (LANDSAF)
-                        Starttime_GMT = datetime.strptime(Startdate,'%Y-%m-%d') + timedelta(hours=-delta_GTM)
-                        Endtime_GMT = Starttime_GMT + timedelta(days=1)
-                        Times = pd.date_range(Starttime_GMT, Endtime_GMT,freq = '30min')
-
-                        for Time in Times[:-1]:
-                            year_LANDSAF = Time.year
-                            month_LANDSAF = Time.month
-                            day_LANDSAF = Time.day
-                            hour_LANDSAF = Time.hour
-                            min_LANDSAF = Time.minute
-
-                            # Define the instantanious LANDSAF file
-                            #re = glob.glob('')
-                            name_Landsaf_inst = 'HDF5_LSASAF_MSG_DSSF_MSG-Disk_%d%02d%02d%02d%02d.tif' %(year_LANDSAF, month_LANDSAF,day_LANDSAF, hour_LANDSAF, min_LANDSAF)
-                            file_Landsaf_inst = os.path.join(DSSF_Folder,name_Landsaf_inst)
-
-                            # Open the Rs LANDSAF data
-                            dest_Rs_inst_3Km = gdal.Open(file_Landsaf_inst)
-                            Rs_one_3Km = dest_Rs_inst_3Km.GetRasterBand(1).ReadAsArray()
-                            Rs_one_3Km = np.float_(Rs_one_3Km)/10
-                            Rs_one_3Km[Rs_one_3Km < 0]=np.nan
-
-                            if Time == Times[0]:
-                                Rs_24_3Km_tot = Rs_one_3Km
-                            else:
-                                Rs_24_3Km_tot += Rs_one_3Km
-
-                        Rs_24_3Km = Rs_24_3Km_tot / len(Times[:-1])
-
-                        # Reproject the Ra_inst data to match the LANDSAF data
-                        Ra_24_3Km_dest, ulx, lry, lrx, uly, epsg_to = SEBAL.reproject_dataset_example(Ra_mountain_24_fileName, file_Landsaf_inst, method = 3)
-                        Ra_24_3Km = Ra_24_3Km_dest.GetRasterBand(1).ReadAsArray()
-                        Ra_24_3Km[Ra_24_3Km==0] = np.nan
-
-                        # Do gapfilling
-                        Ra_24_3Km = gap_filling(Ra_24_3Km,np.nan)
-
-                        # Get shape LANDSAF data
-                        shape_trans=[dest_Rs_inst_3Km.RasterXSize , dest_Rs_inst_3Km.RasterYSize ]
-
-                        # Calculate Transmissivity 3Km
-                        Transmissivity_24_3Km = Rs_24_3Km/Ra_24_3Km
-
-                        Transmissivity_24_3Km_fileName = os.path.join(temp_folder_PreSEBAL,'Transmissivity_24_3Km.tif')
-                        SEBAL.save_GeoTiff_proy(Ra_24_3Km_dest, Transmissivity_24_3Km, Transmissivity_24_3Km_fileName, shape_trans, nband=1)
-
-                        # Reproject Transmissivity to match DEM (now this is done by using the nearest neighbour method)
-                        Transmissivity_24_dest, ulx, lry, lrx, uly, epsg_to = SEBAL.reproject_dataset_example(Transmissivity_24_3Km_fileName, lon_fileName, method = 3)
-                        Transmissivity_24 = Transmissivity_24_dest.GetRasterBand(1).ReadAsArray()
-                        Transmissivity_24[Transmissivity_24>0.98] = 0.98
-                        Transmissivity_24_fileName = os.path.join(TRANS_outfolder,'Transmissivity_24_%s.tif' %Var_name)
-                        SEBAL.save_GeoTiff_proy(Transmissivity_24_dest, Transmissivity_24, Transmissivity_24_fileName, shape, nband=1)
-
-        #################### Calculate NDVI for LANDSAT ##########################################
-
-            if Image_Type == 1:
-
-                # Define bands used for each Landsat number
-                if Landsat_nr == 5 or Landsat_nr == 7:
-                    Bands = np.array([1, 2, 3, 4, 5, 7, 6])
-                elif Landsat_nr == 8:
-                    Bands = np.array([2, 3, 4, 5, 6, 7, 10, 11])
-                else:
-                    print 'Landsat image not supported, use Landsat 7 or 8'
-
-                # Open MTL landsat and get the correction parameters
-                Landsat_meta_fileName = os.path.join(input_folder, '%s_MTL.txt' % Name_Landsat_Image)
-                Lmin, Lmax, k1_c, k2_c = SEBAL.info_band_metadata(Landsat_meta_fileName, Bands)
-
-                # Mean solar exo-atmospheric irradiance for each band (W/m2/microm)
-                # for the different Landsat images (L5, L7, or L8)
-                ESUN_L5 = np.array([1983, 1796, 1536, 1031, 220, 83.44])
-                ESUN_L7 = np.array([1997, 1812, 1533, 1039, 230.8, 84.9])
-                ESUN_L8 = np.array([1973.28, 1842.68, 1565.17, 963.69, 245, 82.106])
-
-                # Open one band - To get the metadata of the landsat images only once (to get the extend)
-                src_FileName = os.path.join(input_folder, '%s_B2.TIF' % Name_Landsat_Image)  # before 10!
-                ls,band_data,ulx,uly,lrx,lry,x_size_ls,y_size_ls = SEBAL.Get_Extend_Landsat(src_FileName)
-
-                # Crop the Landsat images to the DEM extent -
-                dst_FileName = os.path.join(temp_folder_PreSEBAL,'cropped_LS_b2.tif')  # Before 10 !!
-
-                # Clip the landsat image to match the DEM map
-                lsc, ulx, lry, lrx, uly, epsg_to = SEBAL.reproject_dataset_example(src_FileName, lon_fileName)
-                data_LS = lsc.GetRasterBand(1).ReadAsArray()
-                SEBAL.save_GeoTiff_proy(dest, data_LS, dst_FileName, shape, nband=1)
-
-                # Get the extend of the remaining landsat file after clipping based on the DEM file
-                lsc,band_data,ulx,uly,lrx,lry,x_size_lsc,y_size_lsc = SEBAL.Get_Extend_Landsat(dst_FileName)
-
-                # Create the corrected signals of Landsat in 1 array
-                Reflect = SEBAL.Landsat_Reflect(Bands,input_folder,Name_Landsat_Image,output_folder,shape,Lmax,Lmin,ESUN_L5,ESUN_L7,ESUN_L8,cos_zn_resh,dr,Landsat_nr, cos_zn_fileName)
-
-                # Calculate temporal water mask
-                water_mask_temp=SEBAL.Water_Mask(shape,Reflect)
-
-                # Calculate NDVI
-                NDVI = SEBAL.Calc_NDVI(Reflect)
-
-                # Calculate albedo
-                albedo = SEBAL.Calc_albedo(Reflect)
-
-                # Save NDVI
-                NDVI_FileName = os.path.join(NDVI_outfolder,'NDVI_LS_%s.tif'%Var_name)
+                # Save NDVI for PROBA-V
                 SEBAL.save_GeoTiff_proy(dest, NDVI, NDVI_FileName, shape, nband=1)
 
-                # Save albedo
-                albedo_FileName = os.path.join(Albedo_outfolder,'Albedo_LS_%s.tif'%Var_name)
-                SEBAL.save_GeoTiff_proy(dest, albedo, albedo_FileName, shape, nband=1)
+                # Save Water Mask for PROBA-V
+                SEBAL.save_GeoTiff_proy(dest, water_mask_temp, water_mask_temp_FileName, shape, nband=1)
 
-        ################### Extract Meteo data for Landsat days from SEBAL Excel ##################
-
-            # Open the Meteo_Input sheet
-            ws = wb['Meteo_Input']
-            # ---------------------------- Instantaneous Air Temperature ------------
-            # Open meteo data, first try to open as value, otherwise as string (path)
-            try:
-               Temp_inst = float(ws['B%d' %number].value)                # Instantaneous Air Temperature (°C)
+            else:
 
-            # if the data is not a value, than open as a string
-            except:
-                Temp_inst_name = '%s' %str(ws['B%d' %number].value)
-                Temp_inst_fileName = os.path.join(temp_folder_PreSEBAL, 'Temp_inst_input.tif')
-                Temp_inst = SEBAL.Reshape_Reproject_Input_data(Temp_inst_name, Temp_inst_fileName, lon_fileName)
-
-            try:
-                RH_inst = float(ws['D%d' %number].value)                # Instantaneous Relative humidity (%)
-
-            # if the data is not a value, than open as a string
-            except:
-                RH_inst_name = '%s' %str(ws['D%d' %number].value)
-                RH_inst_fileName = os.path.join(temp_folder_PreSEBAL, 'RH_inst_input.tif')
-                RH_inst = SEBAL.Reshape_Reproject_Input_data(RH_inst_name, RH_inst_fileName, lon_fileName)
-
-            esat_inst = 0.6108 * np.exp(17.27 * Temp_inst / (Temp_inst + 237.3))
-            eact_inst = RH_inst * esat_inst / 100
-
-         #################### Calculate NDVI for VIIRS-PROBAV ##########################################
+                dest_NDVI = gdal.Open(NDVI_FileName)
+                dest_water_mask_temp = gdal.Open(water_mask_temp_FileName)
+                NDVI = dest_NDVI.GetRasterBand(1).ReadAsArray()
+                water_mask_temp = dest_water_mask_temp.GetRasterBand(1).ReadAsArray()
 
-            if Image_Type == 2:
-
-                if Name_PROBAV_Image == 'None':
-
-                    offset_all = [-1, 1, -2, 2, -3, 3,-4, 4,-5 ,5 ,-6 , 6, -7, 7, -8, 8]
-                    found_Name_PROBAV_Image = 0
-                    for offset in offset_all:
-
-                        if found_Name_PROBAV_Image == 1:
-                            continue
-                        else:
-                            try:
-                                Name_PROBAV_Image = SEBAL_RUNS[number + offset]['PROBA_V_name']
-                                if not Name_PROBAV_Image == 'None':
-                                    found_Name_PROBAV_Image = 1
-                            except:
-                                pass
-
-                    # Get the day and time from the PROBA-V
-                    Band_PROBAVhdf_fileName = os.path.join(input_folder, '%s.HDF5' % (Name_PROBAV_Image))
-                    g=gdal.Open(Band_PROBAVhdf_fileName, gdal.GA_ReadOnly)
-
-                    Meta_data = g.GetMetadata()
-                    Date_PROBAV = str(Meta_data['LEVEL3_RADIOMETRY_BLUE_OBSERVATION_START_DATE'])
-                    year = int(Date_PROBAV.split("-")[0])
-                    month = int(Date_PROBAV.split("-")[1])
-                    day = int(Date_PROBAV.split("-")[2])
-                    Var_name_2 = '%d%02d%02d' %(year, month, day)
-
-                    # Define the output name
-                    NDVI_FileName = os.path.join(NDVI_outfolder,'NDVI_PROBAV_%s.tif' %Var_name_2)
-                    Albedo_FileName = os.path.join(Albedo_outfolder, 'Albedo_PROBAV_%s.tif' %Var_name_2)
-                    water_mask_temp_FileName = os.path.join(WaterMask_outfolder, 'Water_Mask_PROBAV_%s.tif' %Var_name_2)
-
-                else:
-                    NDVI_FileName = os.path.join(NDVI_outfolder,'NDVI_PROBAV_%s.tif' %Var_name)
-                    Albedo_FileName = os.path.join(Albedo_outfolder, 'Albedo_PROBAV_%s.tif' %Var_name)
-                    water_mask_temp_FileName = os.path.join(WaterMask_outfolder, 'Water_Mask_PROBAV_%s.tif' %Var_name)
-
-                # vegetation maps that will be generated
-
-
-                if not os.path.exists(NDVI_FileName):
 
-                    # Define the bands that will be used
-                    bands=['SM', 'B1', 'B2', 'B3', 'B4']  #'SM', 'BLUE', 'RED', 'NIR', 'SWIR'
 
-                    # Set the index number at 0
-                    index=0
 
-                    # create a zero array with the shape of the reprojected DEM file
-                    data_PROBAV=np.zeros((shape[1], shape[0]))
-                    spectral_reflectance_PROBAV=np.zeros([shape[1], shape[0], 5])
-
-                    # constants
-                    n188_float=248       # Now it is 248, but we do not exactly know what this really means and if this is for constant for all images.
-
-                    # write the data one by one to the spectral_reflectance_PROBAV
-                    for bandnmr in bands:
-
-                        # Translate the PROBA-V names to the Landsat band names
-                        Band_number = {'SM':7,'B1':8,'B2':10,'B3':9,'B4':11}
-
-                        # Open the dataset
-                        Band_PROBAVhdf_fileName = os.path.join(input_folder, '%s.HDF5' % (Name_PROBAV_Image))
-                        g=gdal.Open(Band_PROBAVhdf_fileName, gdal.GA_ReadOnly)
-
-                        # define data if it is not there yet
-                        if not 'Var_name' in locals():
-                            Meta_data = g.GetMetadata()
-                            Date_PROBAV = str(Meta_data['LEVEL3_RADIOMETRY_BLUE_OBSERVATION_START_DATE'])
-                            year = int(Date_PROBAV.split("-")[0])
-                            month = int(Date_PROBAV.split("-")[0])
-                            day = int(Date_PROBAV.split("-")[0])
-                            Var_name = '%d%02d%02d' %(year, month, day)
-
-
-                        # Open the .hdf file
-                        name_out = os.path.join(input_folder, '%s_test.tif' % (Name_PROBAV_Image))
-                        name_in = g.GetSubDatasets()[Band_number[bandnmr]][0]
-
-                        # Get environmental variable
-                        SEBAL_env_paths = os.environ["SEBAL"].split(';')
-                        GDAL_env_path = SEBAL_env_paths[0]
-                        GDAL_TRANSLATE = os.path.join(GDAL_env_path, 'gdal_translate.exe')
-
-                        # run gdal translate command
-                        FullCmd = '%s -of GTiff %s %s' %(GDAL_TRANSLATE, name_in, name_out)
-                        SEBAL.Run_command_window(FullCmd)
-
-                        # Open data
-                        dest_PV = gdal.Open(name_out)
-                        Data = dest_PV.GetRasterBand(1).ReadAsArray()
-                        dest_PV = None
-
-                        # Remove temporary file
-                        os.remove(name_out)
-
-                        # Define the x and y spacing
-                        Meta_data = g.GetMetadata()
-                        Lat_Bottom = float(Meta_data['LEVEL3_GEOMETRY_BOTTOM_LEFT_LATITUDE'])
-                        Lat_Top = float(Meta_data['LEVEL3_GEOMETRY_TOP_RIGHT_LATITUDE'])
-                        Lon_Left = float(Meta_data['LEVEL3_GEOMETRY_BOTTOM_LEFT_LONGITUDE'])
-                        Lon_Right = float(Meta_data['LEVEL3_GEOMETRY_TOP_RIGHT_LONGITUDE'])
-                        Pixel_size = float((Meta_data['LEVEL3_GEOMETRY_VNIR_VAA_MAPPING']).split(' ')[-3])
-
-                        # Define the georeference of the PROBA-V data
-                        geo_PROBAV=[Lon_Left-0.5*Pixel_size, Pixel_size, 0, Lat_Top+0.5*Pixel_size, 0, -Pixel_size] #0.000992063492063
-
-                        # Define the name of the output file
-                        PROBAV_data_name=os.path.join(input_folder, '%s_%s.tif' % (Name_PROBAV_Image,bandnmr))
-                        dst_fileName=os.path.join(input_folder, PROBAV_data_name)
-
-                        # create gtiff output with the PROBA-V band
-                        fmt = 'GTiff'
-                        driver = gdal.GetDriverByName(fmt)
-
-                        dst_dataset = driver.Create(dst_fileName, int(Data.shape[1]), int(Data.shape[0]), 1,gdal.GDT_Float32)
-                        dst_dataset.SetGeoTransform(geo_PROBAV)
 
-                        # set the reference info
-                        srs = osr.SpatialReference()
-                        srs.SetWellKnownGeogCS("WGS84")
-                        dst_dataset.SetProjection(srs.ExportToWkt())
 
-                        # write the array in the geotiff band
-                        dst_dataset.GetRasterBand(1).WriteArray(Data)
-                        dst_dataset = None
 
-                        # Open the PROBA-V band in SEBAL
-                        g=gdal.Open(PROBAV_data_name.replace("\\","/"))
+   # apply HANTS for NDVI and ALBEDO (KARIM)
 
-                        # If the data cannot be opened, change the extension
-                        if g is None:
-                            PROBAV_data_name=os.path.join(input_folder, '%s_%s.tiff' % (Name_PROBAV_Image,bandnmr))
+   # apply the combined version for NDVI and ALBEDO
 
-                        # Reproject the PROBA-V band  to match DEM's resolution
-                        PROBAV, ulx, lry, lrx, uly, epsg_to = SEBAL.reproject_dataset_example(
-                                          PROBAV_data_name, lon_fileName)
+   # calculate Thermal
 
-                        # Open the reprojected PROBA-V band data
-                        data_PROBAV_DN = PROBAV.GetRasterBand(1).ReadAsArray(0, 0, ncol, nrow)
+   # apply Thermal HANTS (KARIMMET)
 
-                        # Define the filename to store the cropped Landsat image
-                        dst_FileName = os.path.join(output_folder, 'Output_PROBAV','proy_PROBAV_%s.tif' % bandnmr)
+   # Calculate the other spatial variables
 
-                        # close the PROBA-V
-                        g=None
 
-                        # If the band data is not SM change the DN values into PROBA-V values and write into the spectral_reflectance_PROBAV
-                        if bandnmr is not 'SM':
-                            data_PROBAV[:, :]=data_PROBAV_DN/2000
-                            spectral_reflectance_PROBAV[:, :, index]=data_PROBAV[:, :]
 
-                        # If the band data is the SM band than write the data into the spectral_reflectance_PROBAV  and create cloud mask
-                        else:
-                            data_PROBAV[:, :]=data_PROBAV_DN
-                            Cloud_Mask_PROBAV=np.zeros((shape[1], shape[0]))
-                            Cloud_Mask_PROBAV[data_PROBAV[:,:]!=n188_float]=1
-                            spectral_reflectance_PROBAV[:, :, index]=Cloud_Mask_PROBAV
 
-                        # Change the spectral reflectance to meet certain limits
-                        spectral_reflectance_PROBAV[:, :, index]=np.where(spectral_reflectance_PROBAV[:, :, index]<=0,np.nan,spectral_reflectance_PROBAV[:, :, index])
-                        spectral_reflectance_PROBAV[:, :, index]=np.where(spectral_reflectance_PROBAV[:, :, index]>=150,np.nan,spectral_reflectance_PROBAV[:, :, index])
 
-                        # Go to the next index
-                        index=index+1
 
-                    # Bands in PROBAV spectral reflectance
-                    # 0 = MS
-                    # 1 = BLUE
-                    # 2 = NIR
-                    # 3 = RED
-                    # 4 = SWIR
 
-                    # Calculate surface albedo based on PROBA-V
-                    Surface_Albedo_PROBAV = 0.219 * spectral_reflectance_PROBAV[:, :, 1] + 0.361 * spectral_reflectance_PROBAV[:, :, 2] + 0.379 * spectral_reflectance_PROBAV[:, :, 3] + 0.041 * spectral_reflectance_PROBAV[:, :, 4]
 
-                    # Calculate the NDVI based on PROBA-V
-                    n218_memory = spectral_reflectance_PROBAV[:, :, 2] + spectral_reflectance_PROBAV[:, :, 3]
-                    NDVI = np.zeros((shape[1], shape[0]))
-                    NDVI[n218_memory != 0] =  ( spectral_reflectance_PROBAV[:, :, 3][n218_memory != 0] - spectral_reflectance_PROBAV[:, :, 2][n218_memory != 0] )/ ( spectral_reflectance_PROBAV[:, :, 2][n218_memory != 0] + spectral_reflectance_PROBAV[:, :, 3][n218_memory != 0] )
 
-                    # Create Water mask based on PROBA-V
-                    water_mask_temp = np.zeros((shape[1], shape[0]))
-                    water_mask_temp[np.logical_and(np.logical_and(NDVI<0.1,data_DEM>0),Surface_Albedo_PROBAV<0.2)]=1
 
-                    # Save Albedo for PROBA-V
-                    SEBAL.save_GeoTiff_proy(dest, Surface_Albedo_PROBAV, Albedo_FileName, shape, nband=1)
 
-                    # Save NDVI for PROBA-V
-                    SEBAL.save_GeoTiff_proy(dest, NDVI, NDVI_FileName, shape, nband=1)
 
-                    # Save Water Mask for PROBA-V
-                    SEBAL.save_GeoTiff_proy(dest, water_mask_temp, water_mask_temp_FileName, shape, nband=1)
 
-                else:
 
-                    dest_NDVI = gdal.Open(NDVI_FileName)
-                    dest_water_mask_temp = gdal.Open(water_mask_temp_FileName)
-                    NDVI = dest_NDVI.GetRasterBand(1).ReadAsArray()
-                    water_mask_temp = dest_water_mask_temp.GetRasterBand(1).ReadAsArray()
 
-             ############################ Calculate LAI ##########################################
 
-            # Calculate the LAI
-            FPAR,tir_emis,Nitrogen,vegt_cover,LAI,b10_emissivity = SEBAL.Calc_vegt_para(NDVI,water_mask_temp,shape)
 
-            # Create LAI name
-            if Image_Type == 1:
-                LAI_FileName = os.path.join(LAI_outfolder,'LAI_LS_%s.tif' %Var_name)
-                SEBAL.save_GeoTiff_proy(dest, LAI, LAI_FileName, shape, nband=1)
-
-         #################### Calculate thermal for Landsat ##########################################
-
-            if Image_Type == 1:
-
-                # Calculate thermal
-                therm_data = SEBAL.Landsat_therm_data(Bands,input_folder,Name_Landsat_Image,output_folder,ulx_dem,lry_dem,lrx_dem,uly_dem,shape)
-
-                # Calculate surface temperature
-                Surface_temp=SEBAL.Calc_surface_water_temp(Temp_inst,Landsat_nr,Lmax,Lmin,therm_data,b10_emissivity,k1_c,k2_c,eact_inst,shape,water_mask_temp,Bands_thermal,Rp,tau_sky,surf_temp_offset,Image_Type)
-
-                # Save surface temperature
-                therm_data_FileName = os.path.join(Surface_Temperature_outfolder,'Surface_Temperature_LS_%s.tif' %Var_name)
-                SEBAL.save_GeoTiff_proy(dest, Surface_temp, therm_data_FileName, shape, nband=1)
-
-
-        ################################## Calculate VIIRS surface temperature ########################
-
-            if Image_Type == 2:
-
-               # If there is VIIRS data
-               if not Name_VIIRS_Image_TB == 'None':
-
-                    # Define the VIIRS thermal data name
-                    VIIRS_data_name=os.path.join(input_folder, '%s' % (Name_VIIRS_Image_TB))
-
-                    # Reproject VIIRS thermal data
-                    VIIRS, ulx, lry, lrx, uly, epsg_to = SEBAL.reproject_dataset_example(VIIRS_data_name, lon_fileName)
-
-                    # Open VIIRS thermal data
-                    data_VIIRS = VIIRS.GetRasterBand(1).ReadAsArray()
-
-                    # Set the conditions for the brightness temperature (100m)
-                    brightness_temp=np.where(data_VIIRS>=250, data_VIIRS, np.nan)
-
-                    # Constants
-                    k1=606.399172
-                    k2=1258.78
-                    L_lambda_b10_100=((2*6.63e-34*(3.0e8)**2)/((11.45e-6)**5*(np.exp((6.63e-34*3e8)/(1.38e-23*(11.45e-6)*brightness_temp))-1)))*1e-6
-
-                    # Get Temperature for 100 and 375m resolution
-                    Temp_TOA_100 = SEBAL.Get_Thermal(L_lambda_b10_100,Rp,Temp_inst,tau_sky,tir_emis,k1,k2)
-
-                    # Conditions for surface temperature (100m)
-                    n120_surface_temp=Temp_TOA_100.clip(250, 450)
-
-                    # Save the surface temperature of the VIIRS in 100m resolution
-                    temp_surface_100_fileName_beforeTS = os.path.join(Surface_Temperature_outfolder,'Surface_Temperature_VIIRS_%s.tif' %Var_name)
-                    SEBAL.save_GeoTiff_proy(dest, n120_surface_temp, temp_surface_100_fileName_beforeTS, shape, nband=1)
-
-
+'''
 ###################################################################################################################
 ################################################### HANTS part 4 ##################################################
 ###################################################################################################################
@@ -833,7 +409,7 @@ def main():
 
     for VAR in VARS:
 
-        output_folder_preprocessing_VAR = os.path.join(output_folder_PreSEBAL_SEBAL, VAR)
+        output_folder_preprocessing_VAR = os.path.join(output_folder_PreSEBAL_sub, VAR)
         os.chdir(output_folder_preprocessing_VAR)
 
         for PROBA_V_image in PROBA_V_Dict.keys():
@@ -862,7 +438,7 @@ def main():
             VIIRS_Dict.setdefault(v['VIIRS_name'], []).append(k)
 
     THERM = 'Surface_Temperature'
-    output_folder_preprocessing_THERM = os.path.join(output_folder_PreSEBAL_SEBAL, THERM)
+    output_folder_preprocessing_THERM = os.path.join(output_folder_PreSEBAL_sub, THERM)
 
     for VIIRS_image in VIIRS_Dict.keys():
 
@@ -1064,43 +640,227 @@ def main():
                       nb, nf, HiLo, low, high, fet, dod, delta,
                       proj, -9999.0, rasters_path_out, export_hants_only=True)
 
-###################################################################################################################
-################################################### post HANTS part 5 #############################################
-###################################################################################################################
 
 
-    ############################################# Create Outlier maps for PROBA-V #######################################
-     # Create output folder if not exists
-    output_folder_HANTS_outliers_PROBAV = os.path.join(temp_folder_PreSEBAL, 'Outliers_PROBAV')
-    if not os.path.exists(output_folder_HANTS_outliers_PROBAV):
-        os.mkdir(output_folder_HANTS_outliers_PROBAV)
+'''
 
-    fh = Dataset(nc_path_albedo, mode='r')
-    Var = fh.variables.keys()[-1]
+def main_2():
 
-    lat = fh.variables[fh.variables.keys()[1]][:]
-    lon = fh.variables[fh.variables.keys()[2]][:]
-    time = fh.variables[fh.variables.keys()[3]][:]
+####################################################################################################################
+############################################# CREATE INPUT FOR preSEBAL RUN ########################################
+####################################################################################################################
+
+####################################################################################################################
+##################################################### PreSEBAL_2 ###################################################
+####################################################################################################################
+
+# PreSEBAL_2
+# Part 1: Define input by user
+# Part 2: Set parameters and output folder
+# Part 3: Calculate NDVI and Albedo based on PROBA-V
+
+####################################################################################################################
+#################################### part 1: Define input by user ##################################################
+####################################################################################################################
+
+    VegetationExcel =r"E:\Project_2\UAE\Excel\Excel_PreSEBAL_v1_0.xlsx" # This excel defines the p and c factor and vegetation height.
+    Albedo_netcdf = r"E:\Project_2\UAE\Output\maq_Albedo_01.nc"
+    NDVI_netcdf = r"E:\Project_2\UAE\Output\maq_NDVI_01.nc"
+
+####################################################################################################################
+################################# part 2: Set parameters and output folder #########################################
+####################################################################################################################
+
+    # Open Excel workbook used for Vegetation c and p factor conversions
+    wb_veg = load_workbook(VegetationExcel, data_only=True)
+    ws_veg = wb_veg['General_Input']
+
+    # Input for preSEBAL.py
+    start_date = "%s" %str(ws_veg['B2'].value)
+    end_date = "%s" %str(ws_veg['B3'].value)
+    inputExcel= r"%s" %str(ws_veg['B4'].value)              # The excel with all the SEBAL input data
+    LU_data_FileName = r"%s" %str(ws_veg['B5'].value)       # Path to Land Use map
+    output_folder = r"%s" %str(ws_veg['B7'].value)
+
+    ######################## Load Excels ##########################################
+    # Open Excel workbook for SEBAL inputs
+    wb = load_workbook(inputExcel, data_only=True)
+
+    # Get length of EXCEL sheet
+    ws = wb['General_Input']
+    ws2 = wb['VIIRS_PROBAV_Input']
+    endExcel=int(ws.max_row)
+
+    # Create Dict
+    SEBAL_RUNS = dict()
+
+    for number in range(2,endExcel+1):
+        input_folder_SEBAL = str(ws['B%d' % number].value)
+        output_folder_SEBAL = str(ws['C%d' % number].value)
+        Image_Type = int(ws['D%d' % number].value)
+        PROBA_V_name  = str(ws2['D%d' % number].value)
+        VIIRS_name  = str(ws2['B%d' % number].value)
+        SEBAL_RUNS[number] = {'input_folder': input_folder_SEBAL, 'output_folder': output_folder_SEBAL, 'image_type': Image_Type,'PROBA_V_name': PROBA_V_name,'VIIRS_name': VIIRS_name}
+
+    Kind_Of_Runs_Dict = {}
+    for k, v in SEBAL_RUNS.iteritems():
+        Kind_Of_Runs_Dict.setdefault(v['image_type'], []).append(k)
+
+    PROBA_V_dict = {}
+    for k, v in SEBAL_RUNS.iteritems():
+        PROBA_V_dict.setdefault(v['PROBA_V_name'], []).append(k)
+
+    ######################## Create output folders  ##########################################
+
+    # output maps for main directories
+    output_folder_PreSEBAL_sub = os.path.join(output_folder,'PreSEBAL_SEBAL_out')         # outputs before HANTS
+    output_folder_PreSEBAL = os.path.join(output_folder,'PreSEBAL_out')                     # End outputs of preSEBAL
+    temp_folder_PreSEBAL = os.path.join(output_folder,'PreSEBAL_temp')                      # Temp outputs of preSEBAL
+
+    # output maps for the end products
+    ALBEDO_outfolder_end = os.path.join(output_folder_PreSEBAL,'ALBEDO')
+    NDVI_outfolder_end = os.path.join(output_folder_PreSEBAL,'NDVI')
+    WaterMask_outfolder_end = os.path.join(output_folder_PreSEBAL,'Water_Mask')
+
+    # output maps for side products
+    LAI_outfolder = os.path.join(output_folder_PreSEBAL,'LAI')
+    ALBEDO_outfolder_end = os.path.join(output_folder_PreSEBAL,'ALBEDO')
+    NDVI_outfolder_end = os.path.join(output_folder_PreSEBAL,'NDVI')
+    WaterMask_outfolder_end = os.path.join(output_folder_PreSEBAL,'Water_Mask')
+    TRANS_outfolder = os.path.join(output_folder_PreSEBAL,'Transmissivity')
+    output_folder_HANTS_end_sharp = os.path.join(output_folder_PreSEBAL, 'LST_Sharpened')
+    output_folder_HANTS_end_Veg = os.path.join(output_folder_PreSEBAL, 'Vegetation_Height')
+    output_folder_p_factor =  os.path.join(output_folder_PreSEBAL, 'p_factor')
+    output_folder_LUE =  os.path.join(output_folder_PreSEBAL, 'LUE')
+
+    # preSEBAL side outputs
+    output_folder_HANTS_outliers_PROBAV_combined = os.path.join(output_folder_PreSEBAL_sub, 'Outliers_PROBAV_combined')
+    output_folder_HANTS_outliers_PROBAV_combined_buffer = os.path.join(output_folder_PreSEBAL_sub, 'Outliers_PROBAV_combined_buffer')
+    Surface_Temperature_outfolder = os.path.join(output_folder_PreSEBAL_sub,'Surface_Temperature')
+
+    # preSEBAL temp outputs
+    output_folder_HANTS_outliers_PROBAV_albedo = os.path.join(temp_folder_PreSEBAL, 'Outliers_PROBAV_albedo')
+    output_folder_HANTS_outliers_PROBAV_ndvi = os.path.join(temp_folder_PreSEBAL, 'Outliers_PROBAV_ndvi')
+    output_folder_HANTS_value_PROBAV_albedo = os.path.join(temp_folder_PreSEBAL, 'HANTS_Value_PROBAV_albedo')
+    output_folder_HANTS_value_PROBAV_ndvi = os.path.join(temp_folder_PreSEBAL, 'HANTS_Value_PROBAV_ndvi')
+    output_folder_tir_emis =  os.path.join(temp_folder_PreSEBAL, 'tir_emis')
+
+    # file name of the example dataset based on DEM
+    Example_fileName = os.path.join(temp_folder_PreSEBAL, "DEM_Example_Projection.tif")
+
+    if not os.path.exists(LAI_outfolder):
+        os.makedirs(LAI_outfolder)
+    if not os.path.exists(WaterMask_outfolder_end):
+        os.makedirs(WaterMask_outfolder_end)
+    if not os.path.exists(temp_folder_PreSEBAL_LST):
+        os.makedirs(temp_folder_PreSEBAL_LST)
+    if not os.path.exists(Surface_Temperature_outfolder):
+        os.makedirs(Surface_Temperature_outfolder)
+    if not os.path.exists(TRANS_outfolder):
+        os.makedirs(TRANS_outfolder)
+    if not os.path.exists(output_folder_HANTS_end_sharp):
+        os.mkdir(output_folder_HANTS_end_sharp)
+    if not os.path.exists(output_folder_HANTS_end_Veg):
+        os.mkdir(output_folder_HANTS_end_Veg)
+    if not os.path.exists(output_folder_p_factor):
+        os.mkdir(output_folder_p_factor)
+    if not os.path.exists(output_folder_LUE):
+        os.mkdir(output_folder_LUE)
+    if not os.path.exists(output_folder_tir_emis):
+        os.mkdir(output_folder_tir_emis)
+    if not os.path.exists(output_folder_HANTS_outliers_PROBAV_albedo):
+        os.mkdir(output_folder_HANTS_outliers_PROBAV_albedo)
+    if not os.path.exists(output_folder_HANTS_outliers_PROBAV_ndvi):
+        os.mkdir(output_folder_HANTS_outliers_PROBAV_ndvi)
+    if not os.path.exists(output_folder_HANTS_outliers_PROBAV_albedo):
+        os.mkdir(output_folder_HANTS_outliers_PROBAV_combined)
+    if not os.path.exists(output_folder_HANTS_value_PROBAV_albedo):
+        os.mkdir(output_folder_HANTS_value_PROBAV_albedo)
+    if not os.path.exists(output_folder_HANTS_value_PROBAV_ndvi):
+        os.mkdir(output_folder_HANTS_value_PROBAV_ndvi)
+    if not os.path.exists(output_folder_HANTS_outliers_PROBAV_combined_buffer):
+        os.mkdir(output_folder_HANTS_outliers_PROBAV_combined_buffer)
+
+####################################################################################################################
+################################### part 3: Create outlier maps PROBA-V ############################################
+####################################################################################################################
+
+    # Get the geo information of the example filename
+    Example_file = os.path.join(Example_fileName)
+    dest = gdal.Open(Example_file)
+    ncol = dest.RasterXSize        # Get the reprojected dem column size
+    nrow = dest.RasterYSize        # Get the reprojected dem row size
+    shape=[ncol, nrow]
+
+    ######################################## Create tiff outliers  ##################################
+
+    # open netcdf outliers
+    fh_alb = Dataset(Albedo_netcdf, mode='r')
+    fh_ndvi = Dataset(NDVI_netcdf, mode='r')
+
+    # open geo information of the netcdf file
+    lat = fh_alb.variables[fh_alb.variables.keys()[1]][:]
+    lon = fh_alb.variables[fh_alb.variables.keys()[0]][:]
     minimum_lon = np.min(lon)
     maximum_lat = np.max(lat)
     diff_lon = lon[1] - lon[0]
     diff_lat = lat[1] - lat[0]
+    geo = tuple([minimum_lon, diff_lon, 0, maximum_lat, 0, diff_lat])
 
-    if not ('shape' in locals() or 'dest' in locals()):
-        Example_file = os.path.join(output_folder_preprocessing_VAR, Back_name)
-        dest = gdal.Open(Example_file)
-        ncol = dest.RasterXSize        # Get the reprojected dem column size
-        nrow = dest.RasterYSize        # Get the reprojected dem row size
-        shape=[ncol, nrow]
+    # Loop over the PROBA-V dataset
+    for i in PROBA_V_dict.keys():
 
-    for i in range(0,int(np.shape(time)[0])):
-        time_now = time[i]
-        data = fh.variables['outliers'][:,:,i]
-        geo = tuple([minimum_lon, diff_lon, 0, maximum_lat, 0, diff_lat])
-        name_out = os.path.join(output_folder_HANTS_outliers_PROBAV, 'Outliers_PROBAV_%s.tif' %time_now)
-        SEBAL.save_GeoTiff_proy(dest, data, name_out, shape, nband=1)
+        if len(i)>5:                                            # This is still dirty, normally I need to remove the None string from the PROBA_V_dict.keys()!
+
+            # Get right time dimension
+            date = datetime.strptime(i.split('_')[3], "%Y%m%d")
+            time_now = date.strftime("%Y%m%d")
+            DOY = int(date.strftime('%j'))
+            time = DOY - 1
+
+            # Open arrays
+            # Open outliers
+            data_alb = fh_alb.variables['outliers'][time,:,:]
+            data_ndvi = fh_ndvi.variables['outliers'][time,:,:]
+            # Open Simulated HANTS values
+            data_alb_sim = fh_alb.variables['hants_values'][time,:,:]
+            data_ndvi_sim = fh_ndvi.variables['hants_values'][time,:,:]
+
+            # Combine outliers map
+            data_com = np.zeros(data_ndvi.shape)
+            data_combined = data_ndvi + data_alb
+            data_com[data_combined == 2] = 1
+            data_com_buffer = Create_Buffer(data_com, 50)
+
+            # define output name
+            name_out_alb = os.path.join(output_folder_HANTS_outliers_PROBAV_albedo, 'Outliers_PROBAV_albedo_%s.tif' %time_now)
+            name_out_ndvi = os.path.join(output_folder_HANTS_outliers_PROBAV_ndvi, 'Outliers_PROBAV_ndvi_%s.tif' %time_now)
+            name_out_com = os.path.join(output_folder_HANTS_outliers_PROBAV_combined, 'Outliers_PROBAV_%s.tif' %time_now)
+            name_out_hants_alb = os.path.join(output_folder_HANTS_value_PROBAV_albedo, 'Albedo_HANTS_%s.tif' %time_now)
+            name_out_hants_ndvi = os.path.join(output_folder_HANTS_value_PROBAV_ndvi, 'NDVI_HANTS_%s.tif' %time_now)
+            name_out_com_buffer = os.path.join(output_folder_HANTS_outliers_PROBAV_combined_buffer, 'Outliers_PROBAV_buffer_%s.tif' %time_now)
+
+            # save data
+            SEBAL.save_GeoTiff_proy(dest, np.flipud(data_alb), name_out_alb, shape, nband=1)
+            SEBAL.save_GeoTiff_proy(dest, np.flipud(data_ndvi), name_out_ndvi, shape, nband=1)
+            SEBAL.save_GeoTiff_proy(dest, np.flipud(data_com), name_out_com, shape, nband=1)
+            SEBAL.save_GeoTiff_proy(dest, np.flipud(data_alb_sim), name_out_hants_alb, shape, nband=1)
+            SEBAL.save_GeoTiff_proy(dest, np.flipud(data_ndvi_sim), name_out_hants_ndvi, shape, nband=1)
+            SEBAL.save_GeoTiff_proy(dest, np.flipud(data_com_buffer), name_out_com_buffer, shape, nband=1)
+
+            ################################## Save End products NDVI and Albedo #################################
+            # For now the simulated values of HANTS are used, later a more sophisticated method will be applied
+            name_out_ndvi_end = os.path.join(NDVI_outfolder_end, 'NDVI_%s.tif' %time_now)
+            name_out_albedo_end = os.path.join(Albedo_outfolder_end, 'Albedo_%s.tif' %time_now)
+            SEBAL.save_GeoTiff_proy(dest, np.flipud(data_ndvi_sim), name_out_ndvi_end, shape, nband=1)
+            SEBAL.save_GeoTiff_proy(dest, np.flipud(data_alb_sim), name_out_albedo_end, shape, nband=1)
+
+
 
     ############################################# Create ALBEDO and NDVI #########################################
+
+    # Create all dates
+    Dates = pd.date_range(Startdate, Enddate, freq = "D")
 
     # Create the end thermal files date by date
     for date in Dates:
@@ -1111,10 +871,14 @@ def main():
         day = date.day
 
         # input filenames needed for creating end thermal file
-        filename_outliers = os.path.join(output_folder_HANTS_outliers_PROBAV,"Outliers_PROBAV_%d%02d%02d.tif" %(year,month,day))
+        filename_outliers = os.path.join(output_folder_HANTS_outliers_PROBAV,"Outliers_PROBAV_albedo_%d%02d%02d.tif" %(year,month,day))
         VAR = 'Albedo'
         input_folder_PreSEBAL_ALBEDO = os.path.join(temp_folder_PreSEBAL, VAR + "_HANTS")
         filename_Albedo_original =  os.path.join(Albedo_outfolder, "%s_PROBAV_%d%02d%02d.tif" %(VAR,year,month,day))
+
+
+
+
         filename_Albedo_HANTS = os.path.join(input_folder_PreSEBAL_ALBEDO, "%s_PROBAV_%d%02d%02d.tif" %(VAR,year,month,day))
         VAR = 'NDVI'
         input_folder_PreSEBAL_NDVI = os.path.join(temp_folder_PreSEBAL, VAR + "_HANTS")
@@ -1266,6 +1030,320 @@ def main():
         SEBAL.save_GeoTiff_proy(dest, End_array_Albedo, output_name_end_ALBEDO, shape, nband=1)
         output_name_end_NDVI = os.path.join(NDVI_outfolder_end, "NDVI_PROBAV_%d%02d%02d.tif"%(year,month,day))
         SEBAL.save_GeoTiff_proy(dest, End_array_NDVI, output_name_end_NDVI, shape, nband=1)
+
+
+
+
+
+
+
+
+
+
+
+            Rp = 0.91                        # Path radiance in the 10.4-12.5 µm band (W/m2/sr/µm)
+            tau_sky = 0.866                  # Narrow band transmissivity of air, range: [10.4-12.5 µm]
+            surf_temp_offset = 3             # Surface temperature offset for water
+
+
+
+
+
+
+            #Get time from the VIIRS dataset name (IMPORTANT TO KEEP THE TEMPLATE OF THE VIIRS NAME CORRECT example: VIIRS_SVI05_npp_d20161021_t0956294_e1002080_b25822_c20161021160209495952_noaa_ops.tif)
+            Total_Day_VIIRS = Name_VIIRS_Image_TB.split('_')[3]
+            Total_Time_VIIRS = Name_VIIRS_Image_TB.split('_')[4]
+
+            # Get the information out of the VIIRS name in GMT (Greenwich time)
+            year = int(Total_Day_VIIRS[1:5])
+            month = int(Total_Day_VIIRS[5:7])
+            day = int(Total_Day_VIIRS[7:9])
+            Startdate = '%d-%02d-%02d' % (year,month,day)
+            DOY=datetime.strptime(Startdate,'%Y-%m-%d').timetuple().tm_yday
+            hour = int(Total_Time_VIIRS[1:3])
+            minutes = int(Total_Time_VIIRS[3:5])
+
+            # If this is runned correctly, we can determine transmissivity
+            ws = wb['Meteo_Input']
+            Field_Radiation_24 = '%s' %str(ws['J%d' % number].value)
+            Field_Trans_24 = '%s' %str(ws['K%d' % number].value)
+
+            Determine_transmissivity = 1
+
+
+
+            # Determine the transmissivity if possible (Determine_transmissivity = 1)
+            if Determine_transmissivity == 1:
+
+                # Rounded difference of the local time from Greenwich (GMT) (hours):
+                delta_GTM = round(np.sign(lon[int(np.shape(lon)[0]/2), int(np.shape(lon)[1]/2)]) * lon[int(np.shape(lon)[0]/2), int(np.shape(lon)[1]/2)] * 24 / 360)
+                if np.isnan(delta_GTM) == True:
+                    delta_GTM = round(np.nanmean(lon) * np.nanmean(lon)  * 24 / 360)
+
+                # Calculate local time
+                hour += delta_GTM
+                if hour < 0.0:
+                    day -= 1
+                    hour += 24
+                if hour >= 24:
+                    day += 1
+                    hour -= 24
+
+                # define the kind of sensor and resolution of the sensor
+                sensor1 = 'PROBAV'
+                sensor2 = 'VIIRS'
+                res1 = '375m'
+                res2 = '%sm' %int(pixel_spacing)
+                res3 = '30m'
+
+
+
+
+
+
+
+          ######################## Extract general data from DEM file and create Slope map ##########################################
+
+
+
+            # Read out the DEM band and print the DEM properties
+            data_DEM = band.ReadAsArray(0, 0, ncol, nrow)
+
+            # 2) Latitude file - reprojection
+            # reproject latitude to the landsat projection and save as tiff file
+            lat_rep, ulx_dem, lry_dem, lrx_dem, uly_dem, epsg_to = SEBAL.reproject_dataset(
+                            lat_fileName, pixel_spacing, UTM_Zone=UTM_Zone)
+
+            # Get the reprojected latitude data
+            lat_proy = lat_rep.GetRasterBand(1).ReadAsArray(0, 0, ncol, nrow)
+
+            # 3) Longitude file - reprojection
+            # reproject longitude to the landsat projection	 and save as tiff file
+            lon_rep, ulx_dem, lry_dem, lrx_dem, uly_dem, epsg_to = SEBAL.reproject_dataset(lon_fileName, pixel_spacing, UTM_Zone=UTM_Zone)
+
+            # Get the reprojected longitude data
+            lon_proy = lon_rep.GetRasterBand(1).ReadAsArray(0, 0, ncol, nrow)
+
+            lon_fileName = os.path.join(temp_folder_PreSEBAL,'lon_resh.tif')
+            SEBAL.save_GeoTiff_proy(dest, lon_proy, lon_fileName, shape, nband=1)
+
+            # Calculate slope and aspect from the reprojected DEM
+            deg2rad,rad2deg,slope,aspect=SEBAL.Calc_Gradient(data_DEM, pixel_spacing)
+
+            if Determine_transmissivity == 1:
+
+                # calculate the coz zenith angle
+                Ra_mountain_24, Ra_inst, cos_zn_resh, dr, phi, delta = SEBAL.Calc_Ra_Mountain(lon,DOY,hour,minutes,lon_proy,lat_proy,slope,aspect)
+                cos_zn_fileName = os.path.join(temp_folder_PreSEBAL,'cos_zn.tif')
+                SEBAL.save_GeoTiff_proy(dest, cos_zn_resh, cos_zn_fileName, shape, nband=1)
+
+                # Save the Ra
+                Ra_inst_fileName = os.path.join(temp_folder_PreSEBAL,'Ra_inst.tif')
+                SEBAL.save_GeoTiff_proy(dest, Ra_inst, Ra_inst_fileName, shape, nband=1)
+                Ra_mountain_24_fileName = os.path.join(temp_folder_PreSEBAL,'Ra_mountain_24.tif')
+                SEBAL.save_GeoTiff_proy(dest, Ra_mountain_24, Ra_mountain_24_fileName, shape, nband=1)
+
+                #################### Calculate Transmissivity ##########################################
+                # Open the General_Input sheet
+                ws = wb['Meteo_Input']
+
+                # Extract the method radiation value
+                Value_Method_Radiation_inst = '%s' %str(ws['L%d' % number].value)
+
+                # Values to check if data is created
+                Check_Trans_inst = 0
+                Check_Trans_24 = 0
+
+                # Extract the method radiation value
+                Value_Method_Radiation_24 = '%s' %str(ws['I%d' % number].value)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            ################### Extract Meteo data for Landsat days from SEBAL Excel ##################
+
+                # Open the Meteo_Input sheet
+                ws = wb['Meteo_Input']
+                # ---------------------------- Instantaneous Air Temperature ------------
+                # Open meteo data, first try to open as value, otherwise as string (path)
+                try:
+                   Temp_inst = float(ws['B%d' %number].value)                # Instantaneous Air Temperature (°C)
+                   Temp_inst_375 = float(ws['B%d' %number].value)
+
+                # if the data is not a value, than open as a string
+                except:
+                    Temp_inst_name = '%s' %str(ws['B%d' %number].value)
+                    Temp_inst_fileName = os.path.join(temp_folder_PreSEBAL, 'Temp_inst_input.tif')
+                    Temp_inst = SEBAL.Reshape_Reproject_Input_data(Temp_inst_name, Temp_inst_fileName, lon_fileName)
+
+                try:
+                    RH_inst = float(ws['D%d' %number].value)                # Instantaneous Relative humidity (%)
+
+                # if the data is not a value, than open as a string
+                except:
+                    RH_inst_name = '%s' %str(ws['D%d' %number].value)
+                    RH_inst_fileName = os.path.join(temp_folder_PreSEBAL, 'RH_inst_input.tif')
+                    RH_inst = SEBAL.Reshape_Reproject_Input_data(RH_inst_name, RH_inst_fileName, lon_fileName)
+
+                esat_inst = 0.6108 * np.exp(17.27 * Temp_inst / (Temp_inst + 237.3))
+                eact_inst = RH_inst * esat_inst / 100
+
+
+
+
+
+
+
+
+
+
+
+        ################################# Calculate Emissivity #######################################
+
+            # Calculate the LAI
+            FPAR,tir_emis,Nitrogen,vegt_cover,LAI,b10_emissivity = SEBAL.Calc_vegt_para(NDVI,water_mask_temp,shape)
+
+            # Save Water Mask for PROBA-V
+            tir_emis_FileName = os.path.join(output_folder_tir_emis,'tir_b10_emis_%s.tif' %Var_name)
+            SEBAL.save_GeoTiff_proy(dest, b10_emissivity, tir_emis_FileName, shape, nband=1)
+
+
+        ################################## Calculate VIIRS surface temperature ########################
+
+               # If there is VIIRS data
+               if not Name_VIIRS_Image_TB == 'None':
+
+                    # Define the VIIRS thermal data name
+                    VIIRS_data_name=os.path.join(input_folder, '%s' % (Name_VIIRS_Image_TB))
+
+                    # Open VIIRS thermal data
+                    VIIRS = gdal.Open(VIIRS_data_name)
+                    data_VIIRS = VIIRS.GetRasterBand(1).ReadAsArray()
+                    shape_VIIRS = [VIIRS.RasterXSize, VIIRS.RasterYSize]
+
+                    # Set the conditions for the brightness temperature (100m)
+                    brightness_temp=np.where(data_VIIRS>=250, data_VIIRS, np.nan)
+
+                    # Constants
+                    k1=606.399172
+                    k2=1258.78
+                    L_lambda_b10_375=((2*6.63e-34*(3.0e8)**2)/((11.45e-6)**5*(np.exp((6.63e-34*3e8)/(1.38e-23*(11.45e-6)*brightness_temp))-1)))*1e-6
+
+                    # reproject tir emis
+                    tir_emis_375_dest, ulx, lry, lrx, uly, epsg_to = SEBAL.reproject_dataset_example(
+                                          tir_emis_FileName, VIIRS_data_name)
+                    tir_emis_375 = tir_emis_375_dest.GetRasterBand(1).ReadAsArray()
+
+                    if not 'Temp_inst_375' in locals():
+                        Temp_inst_375_dest, ulx, lry, lrx, uly, epsg_to = SEBAL.reproject_dataset_example(
+                                              Temp_inst_name, VIIRS_data_name)
+                        Temp_inst_375 = Temp_inst_375_dest.GetRasterBand(1).ReadAsArray()
+
+                    # Get Temperature for 100 and 375m resolution
+                    Temp_TOA_375 = SEBAL.Get_Thermal(L_lambda_b10_375,Rp,Temp_inst_375,tau_sky,tir_emis_375,k1,k2)
+
+                    # Conditions for surface temperature (100m)
+                    n120_surface_temp=Temp_TOA_375.clip(250, 450)
+
+                    # Save the surface temperature of the VIIRS in 100m resolution
+                    temp_surface_375_fileName_beforeTS = os.path.join(Surface_Temperature_outfolder,'Surface_Temperature_VIIRS_%s.tif' %Var_name)
+                    SEBAL.save_GeoTiff_proy(VIIRS, n120_surface_temp, temp_surface_375_fileName_beforeTS, shape_VIIRS, nband=1)
+                    del Temp_inst_375
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###################################################################################################################
+################################################### post HANTS part 5 #############################################
+###################################################################################################################
+
+
+
 
 
     ############################################# Create Outlier maps for VIIRS #########################################
@@ -2171,7 +2249,133 @@ def gap_filling(data,NoDataValue):
 
     return (data_end)
 
+#------------------------------------------------------------------------------
+def reproject_dataset_to_example(dataset, pixel_spacing, proj_in):
+    """
+    A sample function to reproject and resample a GDAL dataset from within
+    Python. The idea here is to reproject from one system to another, as well
+    as to change the pixel size. The procedure is slightly long-winded, but
+    goes like this:
 
+    1. Set up the two Spatial Reference systems.
+    2. Open the original dataset, and get the geotransform
+    3. Calculate bounds of new geotransform by projecting the UL corners
+    4. Calculate the number of pixels with the new projection & spacing
+    5. Create an in-memory raster dataset
+    6. Perform the projection
+    """
+
+    # 1) Open the dataset
+    g = gdal.Open(dataset)
+    if g is None:
+        print 'input folder does not exist'
+
+     # Define the EPSG code...
+    EPSG_code = '%d' % proj_in
+    epsg_to = int(EPSG_code)
+
+    # 2) Define the UK OSNG, see <http://spatialreference.org/ref/epsg/27700/>
+    try:
+        proj = g.GetProjection()
+        Proj_in=proj.split('EPSG","')
+        epsg_from=int((str(Proj_in[-1]).split(']')[0])[0:-1])
+    except:
+        epsg_from = int(4326)    # Get the Geotransform vector:
+    geo_t = g.GetGeoTransform()
+
+    # Vector components:
+    # 0- The Upper Left easting coordinate (i.e., horizontal)
+    # 1- The E-W pixel spacing
+    # 2- The rotation (0 degrees if image is "North Up")
+    # 3- The Upper left northing coordinate (i.e., vertical)
+    # 4- The rotation (0 degrees)
+    # 5- The N-S pixel spacing, negative as it is counted from the UL corner
+    x_size = g.RasterXSize  # Raster xsize
+    y_size = g.RasterYSize  # Raster ysize
+
+    epsg_to = int(epsg_to)
+
+    # 2) Define the UK OSNG, see <http://spatialreference.org/ref/epsg/27700/>
+    osng = osr.SpatialReference()
+    osng.ImportFromEPSG(epsg_to)
+    wgs84 = osr.SpatialReference()
+    wgs84.ImportFromEPSG(epsg_from)
+
+    inProj = Proj(init='epsg:%d' %epsg_from)
+    outProj = Proj(init='epsg:%d' %epsg_to)
+
+    # Up to here, all  the projection have been defined, as well as a
+    # transformation from the from to the to
+    ulx, uly = transform(inProj,outProj,geo_t[0], geo_t[3])
+    lrx, lry = transform(inProj,outProj,geo_t[0] + geo_t[1] * x_size,
+                                        geo_t[3] + geo_t[5] * y_size)
+
+    # See how using 27700 and WGS84 introduces a z-value!
+    # Now, we create an in-memory raster
+    mem_drv = gdal.GetDriverByName('MEM')
+
+    # The size of the raster is given the new projection and pixel spacing
+    # Using the values we calculated above. Also, setting it to store one band
+    # and to use Float32 data type.
+    col = int((lrx - ulx)/pixel_spacing)
+    rows = int((uly - lry)/pixel_spacing)
+
+    # Re-define lr coordinates based on whole number or rows and columns
+    (lrx, lry) = (ulx + col * pixel_spacing, uly -
+                  rows * pixel_spacing)
+
+    dest = mem_drv.Create('', col, rows, 1, gdal.GDT_Float32)
+
+    if dest is None:
+        print 'input folder to large for memory, clip input map'
+
+   # Calculate the new geotransform
+    new_geo = (ulx, pixel_spacing, geo_t[2], uly,
+               geo_t[4], - pixel_spacing)
+
+    # Set the geotransform
+    dest.SetGeoTransform(new_geo)
+    dest.SetProjection(osng.ExportToWkt())
+
+    # Perform the projection/resampling
+    gdal.ReprojectImage(g, dest, wgs84.ExportToWkt(), osng.ExportToWkt(),gdal.GRA_Bilinear)
+
+    return dest, ulx, lry, lrx, uly, epsg_to
+
+
+def Create_Buffer(Data_In, Buffer_area):
+
+   '''
+   This function creates a 3D array which is used to apply the moving window
+   '''
+
+   # Buffer_area = 2 # A block of 2 times Buffer_area + 1 will be 1 if there is the pixel in the middle is 1
+   Data_Out=np.empty((len(Data_In),len(Data_In[1])))
+   Data_Out[:,:] = Data_In
+   for ypixel in range(0,Buffer_area + 1):
+
+        for xpixel in range(1,Buffer_area + 1):
+
+           if ypixel==0:
+                for xpixel in range(1,Buffer_area + 1):
+                    Data_Out[:,0:-xpixel] += Data_In[:,xpixel:]
+                    Data_Out[:,xpixel:] += Data_In[:,:-xpixel]
+
+                for ypixel in range(1,Buffer_area + 1):
+
+                    Data_Out[ypixel:,:] += Data_In[:-ypixel,:]
+                    Data_Out[0:-ypixel,:] += Data_In[ypixel:,:]
+
+           else:
+               Data_Out[0:-xpixel,ypixel:] += Data_In[xpixel:,:-ypixel]
+               Data_Out[xpixel:,ypixel:] += Data_In[:-xpixel,:-ypixel]
+               Data_Out[0:-xpixel,0:-ypixel] += Data_In[xpixel:,ypixel:]
+               Data_Out[xpixel:,0:-ypixel] += Data_In[:-xpixel,ypixel:]
+
+   Data_Out[Data_Out>0.1] = 1
+   Data_Out[Data_Out<=0.1] = 0
+
+   return(Data_Out)
 #------------------------------------------------------------------------------
 if __name__ == '__main__':
     main()

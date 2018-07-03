@@ -88,7 +88,6 @@ def main():
     ######################## Create output folders  ##########################################
 
     output_folder_PreSEBAL_SEBAL = os.path.join(output_folder,'PreSEBAL_SEBAL_out')
-    input_folder_HANTS = os.path.join(output_folder,'HANTS_in')
     output_folder_PreSEBAL = os.path.join(output_folder,'PreSEBAL_out')
     temp_folder_PreSEBAL = os.path.join(output_folder,'PreSEBAL_temp')
     temp_folder_PreSEBAL_LST = os.path.join(temp_folder_PreSEBAL,'LST')
@@ -105,6 +104,7 @@ def main():
     output_folder_HANTS_end_Veg = os.path.join(output_folder_PreSEBAL, 'Vegetation_Height')
     output_folder_p_factor =  os.path.join(output_folder_PreSEBAL, 'p_factor')
     output_folder_LUE =  os.path.join(output_folder_PreSEBAL, 'LUE')
+    output_folder_tir_emis =  os.path.join(temp_folder_PreSEBAL, 'tir_emis')
 
     if not os.path.exists(output_folder_PreSEBAL_SEBAL):
         os.makedirs(output_folder_PreSEBAL_SEBAL)
@@ -140,6 +140,8 @@ def main():
         os.mkdir(output_folder_p_factor)
     if not os.path.exists(output_folder_LUE):
         os.mkdir(output_folder_LUE)
+    if not os.path.exists(output_folder_tir_emis):
+        os.mkdir(output_folder_tir_emis)
 
     # Do not show warnings
     warnings.filterwarnings('ignore')
@@ -149,7 +151,7 @@ def main():
 ####################################################################################################################
 
     ############################## Define General info ############################
-    for number in Kind_Of_Runs_Dict[2]: # Number defines the column of the inputExcel
+    for number in Kind_Of_Runs_Dict[2][7:]: # Number defines the column of the inputExcel
         print number
         if not (SEBAL_RUNS[number]['PROBA_V_name'] == 'None' and SEBAL_RUNS[number]['VIIRS_name'] == 'None'):
             Rp = 0.91                        # Path radiance in the 10.4-12.5 µm band (W/m2/sr/µm)
@@ -170,40 +172,6 @@ def main():
 
             # Open DEM and create Latitude and longitude files
             lat,lon,lat_fileName,lon_fileName=SEBAL.DEM_lat_lon(DEM_fileName, temp_folder_PreSEBAL)
-
-        ######################## Extract general data for Landsat ##########################################
-            if Image_Type == 1:
-
-                # Open the Landsat_Input sheet
-                ws = wb['Landsat_Input']
-
-                # Extract Landsat name, number and amount of thermal bands from excel file
-                Name_Landsat_Image = str(ws['B%d' % number].value)    # From glovis.usgs.gov
-                Landsat_nr = int(ws['C%d' % number].value)            # Type of Landsat (LS) image used (LS5, LS7, or LS8)
-                Bands_thermal = int(ws['D%d' %number].value)         # Number of LS bands to use to retrieve land surface
-
-                # Pixel size of the model
-                pixel_spacing=int(30)
-
-                # the path to the MTL file of landsat
-                Landsat_meta_fileName = os.path.join(input_folder, '%s_MTL.txt' % Name_Landsat_Image)
-
-                # read out the general info out of the MTL file in Greenwich Time
-                year, DOY, hour, minutes, UTM_Zone, Sun_elevation = SEBAL.info_general_metadata(Landsat_meta_fileName) # call definition info_general_metadata
-                date=datetime.strptime('%s %s'%(year,DOY), '%Y %j')
-                month = date.month
-                day = date.day
-
-                # define the kind of sensor and resolution of the sensor
-                sensor1 = 'L%d' % Landsat_nr
-                sensor2 = 'L%d' % Landsat_nr
-                sensor3 = 'L%d' % Landsat_nr
-                res1 = '30m'
-                res2 = '%sm' %int(pixel_spacing)
-                res3 = '30m'
-
-                # Set the start parameter for determining transmissivity at 0
-                Determine_transmissivity = 0
 
         ######################## Extract general data for VIIRS-PROBAV ##########################################
             if Image_Type == 2:
@@ -465,63 +433,6 @@ def main():
                         Transmissivity_24_fileName = os.path.join(TRANS_outfolder,'Transmissivity_24_%s.tif' %Var_name)
                         SEBAL.save_GeoTiff_proy(Transmissivity_24_dest, Transmissivity_24, Transmissivity_24_fileName, shape, nband=1)
 
-        #################### Calculate NDVI for LANDSAT ##########################################
-
-            if Image_Type == 1:
-
-                # Define bands used for each Landsat number
-                if Landsat_nr == 5 or Landsat_nr == 7:
-                    Bands = np.array([1, 2, 3, 4, 5, 7, 6])
-                elif Landsat_nr == 8:
-                    Bands = np.array([2, 3, 4, 5, 6, 7, 10, 11])
-                else:
-                    print 'Landsat image not supported, use Landsat 7 or 8'
-
-                # Open MTL landsat and get the correction parameters
-                Landsat_meta_fileName = os.path.join(input_folder, '%s_MTL.txt' % Name_Landsat_Image)
-                Lmin, Lmax, k1_c, k2_c = SEBAL.info_band_metadata(Landsat_meta_fileName, Bands)
-
-                # Mean solar exo-atmospheric irradiance for each band (W/m2/microm)
-                # for the different Landsat images (L5, L7, or L8)
-                ESUN_L5 = np.array([1983, 1796, 1536, 1031, 220, 83.44])
-                ESUN_L7 = np.array([1997, 1812, 1533, 1039, 230.8, 84.9])
-                ESUN_L8 = np.array([1973.28, 1842.68, 1565.17, 963.69, 245, 82.106])
-
-                # Open one band - To get the metadata of the landsat images only once (to get the extend)
-                src_FileName = os.path.join(input_folder, '%s_B2.TIF' % Name_Landsat_Image)  # before 10!
-                ls,band_data,ulx,uly,lrx,lry,x_size_ls,y_size_ls = SEBAL.Get_Extend_Landsat(src_FileName)
-
-                # Crop the Landsat images to the DEM extent -
-                dst_FileName = os.path.join(temp_folder_PreSEBAL,'cropped_LS_b2.tif')  # Before 10 !!
-
-                # Clip the landsat image to match the DEM map
-                lsc, ulx, lry, lrx, uly, epsg_to = SEBAL.reproject_dataset_example(src_FileName, lon_fileName)
-                data_LS = lsc.GetRasterBand(1).ReadAsArray()
-                SEBAL.save_GeoTiff_proy(dest, data_LS, dst_FileName, shape, nband=1)
-
-                # Get the extend of the remaining landsat file after clipping based on the DEM file
-                lsc,band_data,ulx,uly,lrx,lry,x_size_lsc,y_size_lsc = SEBAL.Get_Extend_Landsat(dst_FileName)
-
-                # Create the corrected signals of Landsat in 1 array
-                Reflect = SEBAL.Landsat_Reflect(Bands,input_folder,Name_Landsat_Image,output_folder,shape,Lmax,Lmin,ESUN_L5,ESUN_L7,ESUN_L8,cos_zn_resh,dr,Landsat_nr, cos_zn_fileName)
-
-                # Calculate temporal water mask
-                water_mask_temp=SEBAL.Water_Mask(shape,Reflect)
-
-                # Calculate NDVI
-                NDVI = SEBAL.Calc_NDVI(Reflect)
-
-                # Calculate albedo
-                albedo = SEBAL.Calc_albedo(Reflect)
-
-                # Save NDVI
-                NDVI_FileName = os.path.join(NDVI_outfolder,'NDVI_LS_%s.tif'%Var_name)
-                SEBAL.save_GeoTiff_proy(dest, NDVI, NDVI_FileName, shape, nband=1)
-
-                # Save albedo
-                albedo_FileName = os.path.join(Albedo_outfolder,'Albedo_LS_%s.tif'%Var_name)
-                SEBAL.save_GeoTiff_proy(dest, albedo, albedo_FileName, shape, nband=1)
-
         ################### Extract Meteo data for Landsat days from SEBAL Excel ##################
 
             # Open the Meteo_Input sheet
@@ -530,6 +441,7 @@ def main():
             # Open meteo data, first try to open as value, otherwise as string (path)
             try:
                Temp_inst = float(ws['B%d' %number].value)                # Instantaneous Air Temperature (°C)
+               Temp_inst_375 = float(ws['B%d' %number].value)
 
             # if the data is not a value, than open as a string
             except:
@@ -736,7 +648,7 @@ def main():
 
                     # Create Water mask based on PROBA-V
                     water_mask_temp = np.zeros((shape[1], shape[0]))
-                    water_mask_temp[np.logical_and(np.logical_and(NDVI<0.1,data_DEM>0),Surface_Albedo_PROBAV<0.2)]=1
+                    water_mask_temp[np.logical_and(NDVI<0.0,Surface_Albedo_PROBAV<0.2)]=1
 
                     # Save Albedo for PROBA-V
                     SEBAL.save_GeoTiff_proy(dest, Surface_Albedo_PROBAV, Albedo_FileName, shape, nband=1)
@@ -759,24 +671,9 @@ def main():
             # Calculate the LAI
             FPAR,tir_emis,Nitrogen,vegt_cover,LAI,b10_emissivity = SEBAL.Calc_vegt_para(NDVI,water_mask_temp,shape)
 
-            # Create LAI name
-            if Image_Type == 1:
-                LAI_FileName = os.path.join(LAI_outfolder,'LAI_LS_%s.tif' %Var_name)
-                SEBAL.save_GeoTiff_proy(dest, LAI, LAI_FileName, shape, nband=1)
-
-         #################### Calculate thermal for Landsat ##########################################
-
-            if Image_Type == 1:
-
-                # Calculate thermal
-                therm_data = SEBAL.Landsat_therm_data(Bands,input_folder,Name_Landsat_Image,output_folder,ulx_dem,lry_dem,lrx_dem,uly_dem,shape)
-
-                # Calculate surface temperature
-                Surface_temp=SEBAL.Calc_surface_water_temp(Temp_inst,Landsat_nr,Lmax,Lmin,therm_data,b10_emissivity,k1_c,k2_c,eact_inst,shape,water_mask_temp,Bands_thermal,Rp,tau_sky,surf_temp_offset,Image_Type)
-
-                # Save surface temperature
-                therm_data_FileName = os.path.join(Surface_Temperature_outfolder,'Surface_Temperature_LS_%s.tif' %Var_name)
-                SEBAL.save_GeoTiff_proy(dest, Surface_temp, therm_data_FileName, shape, nband=1)
+            # Save Water Mask for PROBA-V
+            tir_emis_FileName = os.path.join(output_folder_tir_emis,'tir_emis_%s.tif' %Var_name)
+            SEBAL.save_GeoTiff_proy(dest, tir_emis, tir_emis_FileName, shape, nband=1)
 
 
         ################################## Calculate VIIRS surface temperature ########################
@@ -789,11 +686,10 @@ def main():
                     # Define the VIIRS thermal data name
                     VIIRS_data_name=os.path.join(input_folder, '%s' % (Name_VIIRS_Image_TB))
 
-                    # Reproject VIIRS thermal data
-                    VIIRS, ulx, lry, lrx, uly, epsg_to = SEBAL.reproject_dataset_example(VIIRS_data_name, lon_fileName)
-
                     # Open VIIRS thermal data
+                    VIIRS = gdal.Open(VIIRS_data_name)
                     data_VIIRS = VIIRS.GetRasterBand(1).ReadAsArray()
+                    shape_VIIRS = [VIIRS.RasterXSize, VIIRS.RasterYSize]
 
                     # Set the conditions for the brightness temperature (100m)
                     brightness_temp=np.where(data_VIIRS>=250, data_VIIRS, np.nan)
@@ -801,17 +697,51 @@ def main():
                     # Constants
                     k1=606.399172
                     k2=1258.78
-                    L_lambda_b10_100=((2*6.63e-34*(3.0e8)**2)/((11.45e-6)**5*(np.exp((6.63e-34*3e8)/(1.38e-23*(11.45e-6)*brightness_temp))-1)))*1e-6
+                    L_lambda_b10_375=((2*6.63e-34*(3.0e8)**2)/((11.45e-6)**5*(np.exp((6.63e-34*3e8)/(1.38e-23*(11.45e-6)*brightness_temp))-1)))*1e-6
+
+                    # reproject tir emis
+                    tir_emis_375_dest, ulx, lry, lrx, uly, epsg_to = SEBAL.reproject_dataset_example(
+                                          tir_emis_FileName, VIIRS_data_name)
+                    tir_emis_375 = tir_emis_375_dest.GetRasterBand(1).ReadAsArray()
+
+                    if not 'Temp_inst_375' in locals():
+                        Temp_inst_375_dest, ulx, lry, lrx, uly, epsg_to = SEBAL.reproject_dataset_example(
+                                              Temp_inst_name, VIIRS_data_name)
+                        Temp_inst_375 = Temp_inst_375_dest.GetRasterBand(1).ReadAsArray()
 
                     # Get Temperature for 100 and 375m resolution
-                    Temp_TOA_100 = SEBAL.Get_Thermal(L_lambda_b10_100,Rp,Temp_inst,tau_sky,tir_emis,k1,k2)
+                    Temp_TOA_375 = SEBAL.Get_Thermal(L_lambda_b10_375,Rp,Temp_inst_375,tau_sky,tir_emis_375,k1,k2)
 
                     # Conditions for surface temperature (100m)
-                    n120_surface_temp=Temp_TOA_100.clip(250, 450)
+                    n120_surface_temp=Temp_TOA_375.clip(250, 450)
 
                     # Save the surface temperature of the VIIRS in 100m resolution
-                    temp_surface_100_fileName_beforeTS = os.path.join(Surface_Temperature_outfolder,'Surface_Temperature_VIIRS_%s.tif' %Var_name)
-                    SEBAL.save_GeoTiff_proy(dest, n120_surface_temp, temp_surface_100_fileName_beforeTS, shape, nband=1)
+                    temp_surface_375_fileName_beforeTS = os.path.join(Surface_Temperature_outfolder,'Surface_Temperature_VIIRS_%s.tif' %Var_name)
+                    SEBAL.save_GeoTiff_proy(VIIRS, n120_surface_temp, temp_surface_375_fileName_beforeTS, shape_VIIRS, nband=1)
+                    del Temp_inst_375
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ###################################################################################################################

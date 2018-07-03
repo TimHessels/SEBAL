@@ -13,8 +13,8 @@ This module contains a compilation of scripts and functions to run pySEBAL
 """
 
 
-from SEBAL import pySEBAL, hants, PreSEBAL, GUI
+from SEBAL import pySEBAL, hants, PreSEBAL, GUI, EESEBAL
 
-__all__ = ['pySEBAL', 'hants', 'PreSEBAL', 'GUI']
+__all__ = ['pySEBAL', 'hants', 'PreSEBAL', 'GUI', 'EESEBAL']
 
 __version__ = '0.1'

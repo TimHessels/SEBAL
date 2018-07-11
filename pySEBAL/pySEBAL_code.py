@@ -11,10 +11,10 @@ import sys
 import os
 import shutil
 import numpy as np
-from osgeo import osr
+import osr
 import gdal
 from math import sin, cos, pi, tan
-import scipy
+import scipy.misc as misc
 import subprocess
 import numpy.polynomial.polynomial as poly
 from openpyxl import load_workbook
@@ -2586,13 +2586,13 @@ def resize_array_example(Array_in, Array_example, method=1):
             Array_in_slice = Array_in[i,:,:]
             size=tuple(Array_out_shape[1:])
 
-            Array_out_slice=scipy.misc.imresize(np.float_(Array_in_slice), size, interp=interpolation_method, mode='F')
+            Array_out_slice= misc.imresize(np.float_(Array_in_slice), size, interp=interpolation_method, mode='F')
             Array_out[i,:,:] = Array_out_slice
 
     elif len(Array_out_shape) == 2:
 
         size=tuple(Array_out_shape)
-        Array_out=scipy.misc.imresize(np.float_(Array_in), size, interp=interpolation_method, mode='F')
+        Array_out= misc.imresize(np.float_(Array_in), size, interp=interpolation_method, mode='F')
 
     else:
         print('only 2D or 3D dimensions are supported')

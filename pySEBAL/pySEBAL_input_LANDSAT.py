@@ -128,7 +128,7 @@ def Get_LS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radiance
 
             # create and save the landsat mask for all images based on band 11 (smallest map)
             QC_Map=np.zeros((shape_lsc[1], shape_lsc[0]))
-            QC_Map=np.where(np.logical_or.reduce(ls_data==0,ls_data_2==0,ls_data_3==0,ls_data_4==0,ls_data_5==0,ls_data_6==0,ls_data_7==0),1,0)
+            QC_Map=np.where(np.logical_or.reduce((ls_data==0,ls_data_2==0,ls_data_3==0,ls_data_4==0,ls_data_5==0,ls_data_6==0,ls_data_7==0)),1,0)
 
         # If landsat 8 then use landsat band 10 and 11
         elif Landsat_nr == 8:

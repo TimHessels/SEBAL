@@ -134,7 +134,7 @@ def main(number, inputExcel):
 
     # Data for Module 10 - Calc Hot/Cold Pixel
     NDVIhot_low = 0.03               # Lower NDVI treshold for hot pixels
-    NDVIhot_high = 0.20              # Higher NDVI treshold for hot pixels
+    NDVIhot_high = 0.25              # Higher NDVI treshold for hot pixels
     print 'General Constants: Calc Hot/Cold Pixel (Part 10)'
     print 'Lower NDVI treshold for hot pixels = %s' %NDVIhot_low
     print 'Higher NDVI treshold for hot pixels = %s' %NDVIhot_high
@@ -481,8 +481,8 @@ def main(number, inputExcel):
         Output_filename_radiation_inst = os.path.join(output_folder, 'Output_radiation_balance', 'Rs_inst_input.tif')
         Rs_inst, Rs_inst_source = Open_constant_or_spatial_map(ws, "J%d" %number, Output_filename_radiation_inst, proyDEM_fileName)
         print '____________________Instantanious Radiation_________________________'
-        print 'Source of instantanious radiation = %s' %str(Rs_inst_source)
-        print 'Average instantanious radiation = %s W/m2\n' %float(np.nanmean(Rs_inst))
+        print 'Source of instantanious solar radiation = %s' %str(Rs_inst_source)
+        print 'Average instantanious solar radiation = %s W/m2\n' %float(np.nanmean(Rs_inst))
 
     if Method_Radiation_inst == 2:
         Output_filename_transm_inst = os.path.join(output_folder, 'Output_radiation_balance', 'Transm_inst_input.tif')
@@ -503,8 +503,8 @@ def main(number, inputExcel):
         Output_filename_radiation_24 = os.path.join(output_folder, 'Output_radiation_balance', 'Rs_24_input.tif')
         Rs_24, Rs_24_source = Open_constant_or_spatial_map(ws, "M%d" %number, Output_filename_radiation_24, proyDEM_fileName)
         print '____________________________Daily Radiation_________________________'
-        print 'Source of daily radiation = %s' %str(Rs_24_source)
-        print 'Average daily radiation = %s W/m2\n' %float(np.nanmean(Rs_24))
+        print 'Source of daily solar radiation = %s' %str(Rs_24_source)
+        print 'Average daily solar radiation = %s W/m2\n' %float(np.nanmean(Rs_24))
 
     if Method_Radiation_24 == 2:
         Output_filename_transm_24 = os.path.join(output_folder, 'Output_radiation_balance', 'Transm_24_input.tif')
@@ -826,7 +826,7 @@ def main(number, inputExcel):
 
     # Solar radiation from extraterrestrial radiation
     Rs_24_flat = Ra24_flat * Transm_24
-    print 'Mean Daily Transmissivity = %0.3f (W/m2)' % np.nanmean(Transm_24)
+    print 'Mean Daily Transmissivity = %0.3f (-)' % np.nanmean(Transm_24)
     print 'Mean Daily incoming net Radiation = %0.3f (W/m2)' % np.nanmean(Rs_24)
     print 'Mean Daily incoming net Radiation Flat Terrain = %0.3f (W/m2)' % np.nanmean(Rs_24_flat)
 
@@ -1573,13 +1573,17 @@ def Calc_Meteo(Rs_24,eact_24,Temp_24,Surf_albedo,dr,tir_emis,Surface_temp,water_
                   np.power(eact_24, 0.5)) * (1.35 * Transm_24 / 0.8 - 0.35))
 
     Rnl_24_Slob = 110 * Transm_24
-    print 'Mean Daily Net Radiation (Slob) = %0.3f (W/m2)' % np.nanmean(Rnl_24_Slob)
+
+    print 'Mean Daily Net longwave Radiation (Slob) = %0.3f (W/m2)' % np.nanmean(Rnl_24_Slob)
+    print 'Mean Daily Net longwave Radiation (FAO) = %0.3f (W/m2)' % np.nanmean(Rnl_24_FAO)
 
     # Net 24 hrs radiation (W/m2):
     Rn_24_FAO = Rns_24 - Rnl_24_FAO          # FAO equation
     Rn_24_Slob = Rns_24 - Rnl_24_Slob       # Slob equation
     Rn_24 = (Rn_24_FAO + Rn_24_Slob) / 2  # Average
 
+    print 'Mean Daily Net Radiation (Slob) = %0.3f (W/m2)' % np.nanmean(Rn_24_Slob)
+    print 'Mean Daily Net Radiation (FAO) = %0.3f (W/m2)' % np.nanmean(Rn_24_FAO)
 
     # Instantaneous outgoing longwave radiation:
     lw_out_inst = tir_emis * SB_const * np.power(Surface_temp, 4)

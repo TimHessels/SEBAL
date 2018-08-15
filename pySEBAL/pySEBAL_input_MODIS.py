@@ -40,10 +40,10 @@ def Get_Time_Info(workbook, number):
     DOY =  int(Total_Day_MODIS[4:7])
 
     # Print data used from sheet General_Input
-    print 'MODIS Input:'
-    print 'Path to MODIS LST image = %s' %str(src_FileName_LST)
-    print 'Path to MODIS NDVI image = %s' %str(src_FileName_NDVI)
-    print 'Path to MODIS Reflectance image = %s' %str(src_FileName_Ref)
+    print('MODIS Input:')
+    print('Path to MODIS LST image = %s' %str(src_FileName_LST))
+    print('Path to MODIS NDVI image = %s' %str(src_FileName_NDVI))
+    print('Path to MODIS Reflectance image = %s' %str(src_FileName_Ref))
 
     return(year, DOY, UTM_Zone)
 
@@ -89,8 +89,8 @@ def Get_MODIS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radia
             NDVI = SEBAL.Reshape_Reproject_Input_data(r'%s' %str(ws['B%d' % number].value),ndvi_fileName, Example_fileName)
             NDVI_MAX = np.nanmax(NDVI)
             NDVI_SD =  np.nanstd(NDVI)
-            print 'NDVI User max ' , NDVI_MAX
-            print 'NDVI User sd' , NDVI_SD
+            print('NDVI User max ' , NDVI_MAX)
+            print('NDVI User sd' , NDVI_SD)
 
             # Create Water mask based on PROBA-V
             water_mask_temp = np.zeros((shape_lsc[1], shape_lsc[0]))
@@ -106,8 +106,8 @@ def Get_MODIS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radia
             # NDVI stats
             NDVI_MODIS_MAX = np.nanmax(NDVI)
             NDVI_MODIS_SD =  np.nanstd(NDVI)
-            print 'NDVI MODIS max ' , NDVI_MODIS_MAX
-            print 'NDVI MODIS sd' , NDVI_MODIS_SD
+            print('NDVI MODIS max ' , NDVI_MODIS_MAX)
+            print('NDVI MODIS sd' , NDVI_MODIS_SD)
 
             # Create Water mask based on MODIS
             water_mask_temp = np.zeros((shape_lsc[1], shape_lsc[0]))
@@ -163,11 +163,11 @@ def Get_MODIS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radia
     # Calculate the Fpar, TIR, Nitrogen, Vegetation Cover, LAI and b10_emissivity based on PROBA-V
     FPAR, tir_emis, Nitrogen, vegt_cover, LAI, b10_emissivity = SEBAL.Calc_vegt_para(NDVI, water_mask_temp, shape_lsc)
 
-    print 'Average NDVI = %s' %np.nanmean(NDVI)
-    print 'Average Surface Albedo = %s' %np.nanmean(Surf_albedo)
-    print 'Average LAI = %s' %np.nanmean(LAI)
-    print 'Average Vegetation Cover = %s' %np.nanmean(vegt_cover)
-    print 'Average FPAR = %s' %np.nanmean(FPAR)
+    print('Average NDVI = %s' %np.nanmean(NDVI))
+    print('Average Surface Albedo = %s' %np.nanmean(Surf_albedo))
+    print('Average LAI = %s' %np.nanmean(LAI))
+    print('Average Vegetation Cover = %s' %np.nanmean(vegt_cover))
+    print('Average FPAR = %s' %np.nanmean(FPAR))
 
     return(Surf_albedo, NDVI, LAI, vegt_cover, FPAR, Nitrogen, tir_emis, b10_emissivity, water_mask_temp, QC_Map)
 
@@ -203,7 +203,7 @@ def Get_MODIS_Para_Thermal(workbook, number, Example_fileName, year, DOY, water_
         # If all additional fields are filled in than do not open the datasets
         if ws['D%d' % number].value is None:
 
-            print '...................... Open MODIS Thermal ........................'
+            print('...................... Open MODIS Thermal ........................')
 
             # Calculate the MOD9 based on MODIS
             Surface_temp = Open_reprojected_hdf(src_FileName_LST, 0, epsg_to, 0.02, Example_fileName)
@@ -225,15 +225,15 @@ def Get_MODIS_Para_Thermal(workbook, number, Example_fileName, year, DOY, water_
     temp_water[water_mask_temp == 0.0] = np.nan
     temp_water_sd = np.nanstd(temp_water)     # Standard deviation
     temp_water_mean = np.nanmean(temp_water)  # Mean
-    print 'Mean water temperature = ', '%0.3f (Kelvin)' % temp_water_mean
-    print 'SD water temperature = ', '%0.3f (Kelvin)' % temp_water_sd
+    print('Mean water temperature = ', '%0.3f (Kelvin)' % temp_water_mean)
+    print('SD water temperature = ', '%0.3f (Kelvin)' % temp_water_sd)
     cloud_mask_temp = np.zeros((shape_lsc[1], shape_lsc[0]))
     cloud_mask_temp[Surface_temp < np.minimum((temp_water_mean - 1.0 * temp_water_sd -
                surf_temp_offset),290)] = 1.0
 
     # remove wrong values VIIRS defined by user
     Surface_temp[cloud_mask_temp == 1] = np.nan
-    print 'Mean Surface Temperature = %s Kelvin' %np.nanmean(Surface_temp)
+    print('Mean Surface Temperature = %s Kelvin' %np.nanmean(Surface_temp))
 
     return(Surface_temp, cloud_mask_temp, Thermal_Sharpening_not_needed)
 

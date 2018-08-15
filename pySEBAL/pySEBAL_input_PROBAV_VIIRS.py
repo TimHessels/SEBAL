@@ -42,10 +42,10 @@ def Get_Time_Info(workbook, number):
     minutes = int(Total_Time_VIIRS[3:5])
 
     # Print data used from sheet General_Input
-    print 'VIIRS PROBA-V Input:'
-    print 'Path to Thermal VIIRS image = %s' %str(Name_VIIRS_Image_TB)
-    print 'Path to Quality VIIRS image = %s' %str(Name_VIIRS_Image_QC)
-    print 'Name of PROBA-V image = %s' %str(Name_PROBAV_Image)
+    print('VIIRS PROBA-V Input:')
+    print('Path to Thermal VIIRS image = %s' %str(Name_VIIRS_Image_TB))
+    print('Path to Quality VIIRS image = %s' %str(Name_VIIRS_Image_QC))
+    print('Name of PROBA-V image = %s' %str(Name_PROBAV_Image))
 
     return(year, DOY, hour, minutes, UTM_Zone)
 
@@ -65,7 +65,7 @@ def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radi
     # If all additional fields are filled in than do not open the datasets
     if ws['B%d' % number].value is None or ws['C%d' % number].value is None:
 
-        print '--------------------- Open PROBA-V VIS ------------------------'
+        print('--------------------- Open PROBA-V VIS ------------------------')
 
         # Open the Landsat_Input sheet
         ws = workbook['VIIRS_PROBAV_Input']
@@ -197,15 +197,15 @@ def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radi
         lrx = ulx + x_size_pv * Pixel_size
         lry = uly - y_size_pv * Pixel_size
 
-        print 'Original PROBA-V Image - '
-        print '  Size :', x_size_pv, y_size_pv
-        print '  Upper Left corner x, y: ', ulx, ', ', uly
-        print '  Lower right corner x, y: ', lrx, ', ', lry
+        print('Original PROBA-V Image - ')
+        print('  Size :', x_size_pv, y_size_pv)
+        print('  Upper Left corner x, y: ', ulx, ', ', uly)
+        print('  Lower right corner x, y: ', lrx, ', ', lry)
 
-        print 'Reprojected PROBA-V Image - '
-        print '  Size :', shape_lsc[1], shape_lsc[0]
-        print '  Upper Left corner x, y: ', ulx_dem, ', ', uly_dem
-        print '  Lower right corner x, y: ', lrx_dem, ', ', lry_dem
+        print('Reprojected PROBA-V Image - ')
+        print('  Size :', shape_lsc[1], shape_lsc[0])
+        print('  Upper Left corner x, y: ', ulx_dem, ', ', uly_dem)
+        print('  Lower right corner x, y: ', lrx_dem, ', ', lry_dem)
 
     else:
         # Get General information example file
@@ -282,11 +282,11 @@ def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radi
     QC_Map = np.zeros(NDVI.shape)
     QC_Map[np.isnan(NDVI)] = 1
 
-    print 'Average NDVI = %s' %np.nanmean(NDVI)
-    print 'Average Surface Albedo = %s' %np.nanmean(Surf_albedo)
-    print 'Average LAI = %s' %np.nanmean(LAI)
-    print 'Average Vegetation Cover = %s' %np.nanmean(vegt_cover)
-    print 'Average FPAR = %s' %np.nanmean(FPAR)
+    print('Average NDVI = %s' %np.nanmean(NDVI))
+    print('Average Surface Albedo = %s' %np.nanmean(Surf_albedo))
+    print('Average LAI = %s' %np.nanmean(LAI))
+    print('Average Vegetation Cover = %s' %np.nanmean(vegt_cover))
+    print('Average FPAR = %s' %np.nanmean(FPAR))
 
     return(Surf_albedo, NDVI, LAI, vegt_cover, FPAR, Nitrogen, tir_emis, b10_emissivity, water_mask_temp, QC_Map)
 
@@ -328,7 +328,7 @@ def Get_VIIRS_Para_Thermal(workbook, number, Example_fileName, year, DOY, water_
         # If all additional fields are filled in than do not open the datasets
         if ws['D%d' % number].value is None:
 
-            print '...................... Open VIIRS Thermal ........................'
+            print('...................... Open VIIRS Thermal ........................')
 
              # Define the VIIRS thermal data name
             VIIRS_data_name=os.path.join(input_folder, '%s' % (Name_VIIRS_Image))
@@ -382,8 +382,8 @@ def Get_VIIRS_Para_Thermal(workbook, number, Example_fileName, year, DOY, water_
             temp_water[water_mask_temp == 0.0] = np.nan
             temp_water_sd = np.nanstd(temp_water)     # Standard deviation
             temp_water_mean = np.nanmean(temp_water)  # Mean
-            print 'Mean water temperature = ', '%0.3f (Kelvin)' % temp_water_mean
-            print 'SD water temperature = ', '%0.3f (Kelvin)' % temp_water_sd
+            print('Mean water temperature = ', '%0.3f (Kelvin)' % temp_water_mean)
+            print('SD water temperature = ', '%0.3f (Kelvin)' % temp_water_sd)
             cloud_mask_temp = np.zeros((shape_lsc[1], shape_lsc[0]))
             cloud_mask_temp[Surface_temp < np.minimum((temp_water_mean - 1.0 * temp_water_sd -
                        surf_temp_offset),290)] = 1.0
@@ -392,6 +392,6 @@ def Get_VIIRS_Para_Thermal(workbook, number, Example_fileName, year, DOY, water_
 
     # remove wrong values VIIRS defined by user
     Surface_temp[cloud_mask_temp == 1] = np.nan
-    print 'Mean Surface Temperature = %s Kelvin' %np.nanmean(Surface_temp)
+    print('Mean Surface Temperature = %s Kelvin' %np.nanmean(Surface_temp))
 
     return(Surface_temp, cloud_mask_temp, Thermal_Sharpening_not_needed)

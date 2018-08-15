@@ -50,7 +50,7 @@ def Get_LS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radiance
     # If all additional fields are filled in than do not open the datasets
     if ws['B%d' % number].value is None or ws['C%d' % number].value is None:
 
-        print '-------------------- Open Landsat VIS -----------------------'
+        print('-------------------- Open Landsat VIS -----------------------')
 
         # Open the Landsat_Input sheet
         ws = workbook['Landsat_Input']
@@ -65,15 +65,15 @@ def Get_LS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radiance
         elif Landsat_nr == 8:
            Bands = np.array([2, 3, 4, 5, 6, 7, 10, 11])
         else:
-            print 'Landsat image not supported, use Landsat 7 or 8'
+            print('Landsat image not supported, use Landsat 7 or 8')
 
         # Open MTL landsat and get the correction parameters
         Landsat_meta_fileName = os.path.join(input_folder, '%s_MTL.txt' %Name_Landsat_Image)
         Lmin, Lmax, k1_c, k2_c = info_band_metadata(Landsat_meta_fileName, Bands)
-        print 'Lmin= ', Lmin
-        print 'Lmax= ', Lmax
-        print 'k1= ', k1_c
-        print 'k2= ', k2_c
+        print('Lmin= ', Lmin)
+        print('Lmax= ', Lmax)
+        print('k1= ', k1_c)
+        print('k2= ', k2_c)
 
         sensor1 = 'LS%d' %Landsat_nr
         res1 = '30m'
@@ -89,10 +89,10 @@ def Get_LS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radiance
         # Open one band - To get the metadata of the landsat images only once (to get the extend)
         src_FileName = os.path.join(input_folder, '%s_B2.TIF' %Name_Landsat_Image)  # before 10!
         ls, band_data, ulx, uly, lrx, lry, x_size_ls, y_size_ls = Get_Extend_Landsat(src_FileName)
-        print 'Original LANDSAT Image - '
-        print '  Size :', x_size_ls, y_size_ls
-        print '  Upper Left corner x, y: ', ulx, ', ', uly
-        print '  Lower right corner x, y: ', lrx, ', ', lry
+        print('Original LANDSAT Image - ')
+        print('  Size :', x_size_ls, y_size_ls)
+        print('  Upper Left corner x, y: ', ulx, ', ', uly)
+        print('  Lower right corner x, y: ', lrx, ', ', lry)
 
         lsc, ulx, uly, lrx, lry, epsg_to = SEBAL.reproject_dataset_example(src_FileName, Example_fileName)
 
@@ -101,11 +101,11 @@ def Get_LS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radiance
         x_size_lsc = lsc.RasterXSize
         shape_lsc = [x_size_lsc, y_size_lsc]
 
-        print '--- '
-        print 'Cropped LANDSAT Image - '
-        print '  Size :', x_size_lsc, y_size_lsc
-        print '  Upper Left corner x, y: ', ulx, ', ',  uly
-        print '  Lower right corner x, y: ', lrx, ', ', lry
+        print('--- ')
+        print('Cropped LANDSAT Image - ')
+        print('  Size :', x_size_lsc, y_size_lsc)
+        print('  Upper Left corner x, y: ', ulx, ', ',  uly)
+        print('  Lower right corner x, y: ', lrx, ', ', lry)
 
         # if landsat 5 or 7 is used then first create a mask for removing the no data stripes
         if Landsat_nr == 5 or Landsat_nr == 7:
@@ -143,7 +143,7 @@ def Get_LS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radiance
              QC_Map=np.where(np.logical_or(ls_data_11==0, ls_data_10==0),1,0)
 
         else:
-            print 'Landsat image not supported, use Landsat 7 or 8'
+            print('Landsat image not supported, use Landsat 7 or 8')
 
         # Open data of the landsat mask
         ls_data=Open_landsat(src_FileName, Example_fileName)
@@ -222,11 +222,11 @@ def Get_LS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radiance
     # calculate vegetation properties
     FPAR,tir_emis,Nitrogen,vegt_cover,LAI,b10_emissivity=SEBAL.Calc_vegt_para(NDVI, water_mask_temp,shape_lsc)
 
-    print 'Average NDVI = %s' %np.nanmean(NDVI)
-    print 'Average Surface Albedo = %s' %np.nanmean(Surf_albedo)
-    print 'Average LAI = %s' %np.nanmean(LAI)
-    print 'Average Vegetation Cover = %s' %np.nanmean(vegt_cover)
-    print 'Average FPAR = %s' %np.nanmean(FPAR)
+    print('Average NDVI = %s' %np.nanmean(NDVI))
+    print('Average Surface Albedo = %s' %np.nanmean(Surf_albedo))
+    print('Average LAI = %s' %np.nanmean(LAI))
+    print('Average Vegetation Cover = %s' %np.nanmean(vegt_cover))
+    print('Average FPAR = %s' %np.nanmean(FPAR))
 
     return(Surf_albedo, NDVI, LAI, vegt_cover, FPAR, Nitrogen, tir_emis, b10_emissivity, water_mask_temp, QC_Map)
 
@@ -262,7 +262,7 @@ def Get_LS_Para_Thermal(workbook, number, Example_fileName, year, DOY,  water_ma
     elif Landsat_nr == 8:
         Bands = np.array([2, 3, 4, 5, 6, 7, 10, 11])
     else:
-        print 'Landsat image not supported, use Landsat 7 or 8'
+        print('Landsat image not supported, use Landsat 7 or 8')
 
     # Open MTL landsat and get the correction parameters
     Landsat_meta_fileName = os.path.join(input_folder, '%s_MTL.txt' %Name_Landsat_Image)
@@ -286,9 +286,9 @@ def Get_LS_Para_Thermal(workbook, number, Example_fileName, year, DOY,  water_ma
         elif Landsat_nr == 8:
            Bands = np.array([2, 3, 4, 5, 6, 7, 10, 11])
         else:
-            print 'Landsat image not supported, use Landsat 7 or 8'
+            print('Landsat image not supported, use Landsat 7 or 8')
 
-        print '...................... Open Landsat Thermal ........................'
+        print('...................... Open Landsat Thermal ........................')
 
         # Check if a surface temperature dataset is defined. If so use this one instead of the Landsat, otherwise Landsat
         therm_data = Landsat_therm_data(Bands, input_folder, Name_Landsat_Image, output_folder, shape_lsc, QC_Map, Example_fileName)
@@ -315,7 +315,7 @@ def Get_LS_Para_Thermal(workbook, number, Example_fileName, year, DOY,  water_ma
             cloud_mask_temp = QC_mask_Cloud
 
         Surface_temp[cloud_mask_temp == 1] = np.nan
-        print 'Mean Surface Temperature = %s Kelvin' %np.nanmean(Surface_temp)
+        print('Mean Surface Temperature = %s Kelvin' %np.nanmean(Surface_temp))
 
     else:
         try:
@@ -412,7 +412,7 @@ def Landsat_Reflect(Bands,input_folder,Name_Landsat_Image,output_folder,shape_ls
             # Reflectivity for each band:
             rho_lambda =Landsat_rho_lambda(L_lambda, ESUN_L5, index, cos_zn, dr)
         else:
-            print 'Landsat image not supported, use Landsat 5, 7 or 8'
+            print('Landsat image not supported, use Landsat 5, 7 or 8')
 
         Spec_Rad[:, :, index] = L_lambda
         Reflect[:, :, index] = rho_lambda

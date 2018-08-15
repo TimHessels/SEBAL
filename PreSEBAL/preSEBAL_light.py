@@ -144,7 +144,7 @@ def main():
     
     ############################## Define General info ############################ 
     for number in Kind_Of_Runs_Dict[2]: # Number defines the column of the inputExcel
-        print number
+        print(number)
         if not (SEBAL_RUNS[number]['PROBA_V_name'] == 'None' and SEBAL_RUNS[number]['VIIRS_name'] == 'None'):
             Rp = 0.91                        # Path radiance in the 10.4-12.5 µm band (W/m2/sr/µm)
             tau_sky = 0.866                  # Narrow band transmissivity of air, range: [10.4-12.5 µm]
@@ -469,7 +469,7 @@ def main():
                 elif Landsat_nr == 8:
                     Bands = np.array([2, 3, 4, 5, 6, 7, 10, 11])  
                 else:
-                    print 'Landsat image not supported, use Landsat 7 or 8'
+                    print('Landsat image not supported, use Landsat 7 or 8')
     
                 # Open MTL landsat and get the correction parameters   
                 Landsat_meta_fileName = os.path.join(input_folder, '%s_MTL.txt' % Name_Landsat_Image)
@@ -903,7 +903,7 @@ def Get_epsg(g):
         epsg_to=int((str(Projection[-1]).split(']')[0])[0:-1])				      
     except:
         epsg_to=4326	
-        print 'Was not able to get the projection, so WGS84 is assumed'							
+        print('Was not able to get the projection, so WGS84 is assumed')
     return(epsg_to)	
 
 #------------------------------------------------------------------------------

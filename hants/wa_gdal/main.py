@@ -11,182 +11,219 @@ Module: hants
 from __future__ import division
 import netCDF4
 import pandas as pd
+import numpy as np
+import datetime
 import math
-from .davgis.functions import (Spatial_Reference, List_Datasets, Clip,
-                               Resample, Raster_to_Array, NetCDF_to_Raster)
 import os
-import tempfile
+import osr
+import glob
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import warnings
-
+import gdal
+from joblib import Parallel, delayed
 
 def run_HANTS(rasters_path_inp, name_format,
               start_date, end_date, latlim, lonlim, cellsize, nc_path,
-              nb, nf, HiLo, low, high, fet, dod, delta,
-              epsg=4326, fill_val=-9999.0,
-              rasters_path_out=None, export_hants_only=False):
+              nb, nf, HiLo, low, high, fet, dod, delta, Scaling_factor = 0.001,
+              epsg=4326, cores=1):
     '''
     This function runs the python implementation of the HANTS algorithm. It
     takes a folder with geotiffs raster data as an input, creates a netcdf
     file, and optionally export the data back to geotiffs.
     '''
-    create_netcdf(rasters_path_inp, name_format, start_date, end_date,
-                  latlim, lonlim, cellsize, nc_path,
-                  epsg, fill_val)
-    HANTS_netcdf(nc_path, nb, nf, HiLo, low, high, fet, dod, delta,
-                 fill_val)
-    if rasters_path_out:
-        export_tiffs(rasters_path_out, nc_path, name_format, export_hants_only)
+    nc_paths = create_netcdf(rasters_path_inp, name_format, start_date, end_date,
+                  latlim, lonlim, cellsize, nc_path, Scaling_factor,
+                  epsg)
+    args = [nb, nf, HiLo, low, high, fet, dod, delta, Scaling_factor]
+    print('\tApply HANTS on tiles...')
+    results = Parallel(n_jobs=cores)(delayed(HANTS_netcdf)(nc_path, args)
+                                         for nc_path in nc_paths)
+
+    if len(nc_paths) > 1:
+        Merge_NC_Tiles(nc_paths, nc_path, start_date, end_date, latlim, lonlim, cellsize, epsg, Scaling_factor)
+
     return nc_path
 
 
 def create_netcdf(rasters_path, name_format, start_date, end_date,
-                  latlim, lonlim, cellsize, nc_path,
-                  epsg=4326, fill_val=-9999.0):
+                  latlim, lonlim, cellsize, nc_path, Scaling_factor,
+                  epsg=4326):
     '''
     This function creates a netcdf file from a folder with geotiffs rasters to
     be used to run HANTS.
     '''
     # Latitude and longitude
-    lat_ls = pd.np.arange(latlim[0] + 0.5*cellsize, latlim[1] + 0.5*cellsize,
+    lat_ls = pd.np.arange(latlim[0] + 0.5*cellsize, latlim[1],
                           cellsize)
     lat_ls = lat_ls[::-1]  # ArcGIS numpy
-    lon_ls = pd.np.arange(lonlim[0] + 0.5*cellsize, lonlim[1] + 0.5*cellsize,
+    lon_ls = pd.np.arange(lonlim[0] + 0.5*cellsize, lonlim[1],
                           cellsize)
     lat_n = len(lat_ls)
     lon_n = len(lon_ls)
     spa_ref = Spatial_Reference(epsg)
-    ll_corner = [lonlim[0], latlim[0]]
+    # ll_corner = [lonlim[0], latlim[0]]
 
     # Rasters
     dates_dt = pd.date_range(start_date, end_date, freq='D')
-    dates_ls = [d.strftime('%Y%m%d') for d in dates_dt]
-    ras_ls = List_Datasets(rasters_path, 'tif')
+    dates_ls = [d.toordinal() for d in dates_dt]
+    os.chdir(rasters_path)
+    ras_ls = glob.glob('*.tif')
 
-    # Cell code
-    temp_ll_ls = [pd.np.arange(x, x + lon_n)
-                  for x in range(1, lat_n*lon_n, lon_n)]
-    code_ls = pd.np.array(temp_ll_ls)
+    # Create tile parts
+    if (lat_n > 200 or lon_n > 200):
 
-    empty_vec = pd.np.empty((lat_n, lon_n))
-    empty_vec[:] = fill_val
+        lat_n_amount = np.maximum(1,int(np.floor(lat_n/100)))
+        lon_n_amount = np.maximum(1,int(np.floor(lon_n/100)))
+        nc_path_part_names = nc_path.split('.')
+        nc_path_tiles = []
+        for lat_n_one in range(0, lat_n_amount):
+            for lon_n_one in range(0, lon_n_amount):
+                nc_path_tile = ''.join(nc_path_part_names[0] + "_h%03d_v%03d.nc" %(lon_n_one, lat_n_one))
+                nc_path_tiles = np.append(nc_path_tiles, nc_path_tile)
 
-    # Create netcdf file
-    print('Creating netCDF file...')
-    nc_file = netCDF4.Dataset(nc_path, 'w', format="NETCDF4")
+    else:
+        nc_path_tiles = nc_path
 
-    # Create Dimensions
-    lat_dim = nc_file.createDimension('latitude', lat_n)
-    lon_dim = nc_file.createDimension('longitude', lon_n)
-    time_dim = nc_file.createDimension('time', len(dates_ls))
-
-    # Create Variables
-    crs_var = nc_file.createVariable('crs', 'i4')
-    crs_var.grid_mapping_name = 'latitude_longitude'
-    crs_var.crs_wkt = spa_ref
-
-    lat_var = nc_file.createVariable('latitude', 'f8', ('latitude'),
-                                     fill_value=fill_val)
-    lat_var.units = 'degrees_north'
-    lat_var.standard_name = 'latitude'
-
-    lon_var = nc_file.createVariable('longitude', 'f8', ('longitude'),
-                                     fill_value=fill_val)
-    lon_var.units = 'degrees_east'
-    lon_var.standard_name = 'longitude'
-
-    time_var = nc_file.createVariable('time', 'l', ('time'),
-                                      fill_value=fill_val)
-    time_var.standard_name = 'time'
-    time_var.calendar = 'gregorian'
-
-    code_var = nc_file.createVariable('code', 'i4', ('latitude', 'longitude'),
-                                      fill_value=fill_val)
-
-    outliers_var = nc_file.createVariable('outliers', 'i4',
-                                          ('latitude', 'longitude', 'time'),
-                                          fill_value=fill_val)
-    outliers_var.long_name = 'outliers'
-
-    original_var = nc_file.createVariable('original_values', 'f8',
-                                          ('latitude', 'longitude', 'time'),
-                                          fill_value=fill_val)
-    original_var.long_name = 'original values'
-
-    hants_var = nc_file.createVariable('hants_values', 'f8',
-                                       ('latitude', 'longitude', 'time'),
-                                       fill_value=fill_val)
-    hants_var.long_name = 'hants values'
-
-    combined_var = nc_file.createVariable('combined_values', 'f8',
-                                          ('latitude', 'longitude', 'time'),
-                                          fill_value=fill_val)
-    combined_var.long_name = 'combined values'
-
-    print('\tVariables created')
-
-    # Load data
-    lat_var[:] = lat_ls
-    lon_var[:] = lon_ls
-    time_var[:] = dates_ls
-    code_var[:] = code_ls
-
-    # temp folder
-    temp_dir = tempfile.mkdtemp()
-    bbox = [lonlim[0], latlim[0], lonlim[1], latlim[1]]
-
-    # Raster loop
-    print('\tExtracting data from rasters...')
-    for tt in range(len(dates_ls)):
-
-        # Raster
-        ras = name_format.format(dates_ls[tt])
-
-        if ras in ras_ls:
-            # Resample
-            ras_resampled = os.path.join(temp_dir, 'r_' + ras)
-            Resample(os.path.join(rasters_path, ras), ras_resampled, cellsize)
-            # Clip
-            ras_clipped = os.path.join(temp_dir, 'c_' + ras)
-            Clip(ras_resampled, ras_clipped, bbox)
-            # Raster to Array
-            array = Raster_to_Array(ras_resampled,
-                                    ll_corner, lon_n, lat_n,
-                                    values_type='float32')
-            # Store values
-            original_var[:, :, tt] = array
-
+    i = 0
+    # Loop over the nc_paths
+    for nc_path_tile in nc_path_tiles:
+        i += 1
+        if lat_n_amount > 1:
+            lat_part = int(nc_path_tile[-6:-3])
+            
+            lat_start = lat_part * 100
+            if int(lat_part) is not int(lat_n_amount-1):
+                lat_end = int((lat_part + 1) * 100)
+            else:
+                lat_end = int(lat_n)
         else:
-            # Store values
-            original_var[:, :, tt] = empty_vec
+            lat_start = int(0)
+            lat_end = int(lat_n)
+         
+        if lon_n_amount > 1:
+            lon_part = int(nc_path_tile[-11:-8])
 
-    # Close file
-    nc_file.close()
-    print('NetCDF file created')
+            lon_start = int(lon_part * 100)
+            if int(lon_part) is not int(lon_n_amount-1):
+                lon_end = int((lon_part + 1) * 100)
+            else:
+                lon_end = int(lon_n)
+        else:
+            lon_start = int(0)
+            lon_end = int(lon_n)
+
+
+        # Define space dimention
+        lat_range = lat_ls[lat_start:lat_end]
+        lon_range = lon_ls[lon_start:lon_end]
+        geo_ex = tuple([lon_range[0] - 0.5*cellsize, cellsize, 0, lat_range[0] + cellsize * 0.5, 0, -cellsize])
+
+        # Create netcdf file
+        print('Creating netCDF file tile %s out of %s...' %(i,len(nc_path_tiles)))
+        nc_file = netCDF4.Dataset(nc_path_tile, 'w', format="NETCDF4_CLASSIC")
+
+        # Create Dimensions
+        lat_dim = nc_file.createDimension('latitude', lat_end - lat_start)
+        lon_dim = nc_file.createDimension('longitude', lon_end - lon_start)
+        time_dim = nc_file.createDimension('time', len(dates_ls))
+
+        # Create Variables
+        crso = nc_file.createVariable('crs', 'i4')
+        crso.long_name = 'Lon/Lat Coords in WGS84'
+        crso.standard_name = 'crs'
+        crso.grid_mapping_name = 'latitude_longitude'
+        crso.projection = spa_ref
+        crso.longitude_of_prime_meridian = 0.0
+        crso.semi_major_axis = 6378137.0
+        crso.inverse_flattening = 298.257223563
+        crso.geo_reference = geo_ex
+
+        lat_var = nc_file.createVariable('latitude', 'f8', ('latitude',))
+        lat_var.units = 'degrees_north'
+        lat_var.standard_name = 'latitude'
+
+        lon_var = nc_file.createVariable('longitude', 'f8', ('longitude',))
+        lon_var.units = 'degrees_east'
+        lon_var.standard_name = 'longitude'
+
+        time_var = nc_file.createVariable('time', 'l', ('time',))
+        time_var.standard_name = 'time'
+        time_var.calendar = 'gregorian'
+
+        original_var = nc_file.createVariable('original_values', 'i',
+                                              ('time', 'latitude', 'longitude'),
+                                              fill_value=-9999, zlib=True, least_significant_digit=0)
+        original_var.long_name = 'original_values'
+        original_var.grid_mapping = 'crs'
+        original_var.add_offset = 0.00
+        original_var.scale_factor = Scaling_factor
+        original_var.set_auto_maskandscale(False)
+        print('\tVariables created')
+
+        # Fill in time and space dimention
+        lat_var[:] = lat_range
+        lon_var[:] = lon_range
+        time_var[:] = dates_ls
+
+        # Create memory example file
+        # empty array
+        empty_vec = pd.np.empty((lat_end - lat_start, lon_end - lon_start))
+        empty_vec[:] = -9999 * np.float(Scaling_factor)
+        dest_ex = Save_as_MEM(empty_vec, geo_ex, str(epsg))
+
+        # Raster loop
+        print('\tExtracting data from rasters...')
+        for tt in range(len(dates_ls)):
+
+            Date_now = datetime.datetime.fromordinal(dates_ls[tt])
+            yyyy = str(Date_now.year)
+            mm = '%02d' %int(Date_now.month)            
+            dd = '%02d' %int(Date_now.day)
+             
+            # Raster
+            ras = name_format.format(yyyy=yyyy,mm=mm,dd=dd)
+
+            if ras in ras_ls:
+
+                data_in = os.path.join(rasters_path, ras)
+                dest = reproject_dataset_example(data_in, dest_ex)
+                array_tt = dest.GetRasterBand(1).ReadAsArray()
+                array_tt[array_tt<-9999] = -9999 * np.float(Scaling_factor)
+                original_var[tt, :, :] = np.int_(array_tt * 1./np.float(Scaling_factor))
+
+            else:
+                # Store values
+                original_var[tt, :, :] = np.int_(empty_vec * 1./np.float(Scaling_factor))
+
+        # Close file
+        nc_file.close()
+        print('NetCDF %s file created' %i)
 
     # Return
-    return nc_path
+    return nc_path_tiles
 
 
-def HANTS_netcdf(nc_path, nb, nf, HiLo, low, high, fet, dod, delta,
-                 fill_val=-9999.0):
+def HANTS_netcdf(nc_path, args):
     '''
     This function runs the python implementation of the HANTS algorithm. It
     takes the input netcdf file and fills the 'hants_values',
     'combined_values', and 'outliers' variables.
     '''
-    # Read netcdfs
-    nc_file = netCDF4.Dataset(nc_path, 'r+')
+    nb, nf, HiLo, low, high, fet, dod, delta, Scaling_factor = args
 
+    # Read netcdfs
+    nc_file = netCDF4.Dataset(nc_path, 'r+', format="NETCDF4_CLASSIC")
+    nc_file.set_fill_on()
+    
     time_var = nc_file.variables['time'][:]
     original_values = nc_file.variables['original_values'][:]
 
-    [rows, cols, ztime] = original_values.shape
+    [ztime, rows, cols] = original_values.shape
     size_st = cols*rows
 
-    values_hants = pd.np.empty((rows, cols, ztime))
-    outliers_hants = pd.np.empty((rows, cols, ztime))
+    values_hants = pd.np.empty((ztime, rows, cols))
+    outliers_hants = pd.np.empty((ztime, rows, cols))
 
     values_hants[:] = pd.np.nan
     outliers_hants[:] = pd.np.nan
@@ -197,34 +234,61 @@ def HANTS_netcdf(nc_path, nb, nf, HiLo, low, high, fet, dod, delta,
 
     # Loop
     counter = 1
-    print('Running HANTS...')
+    #print('Running HANTS...')
     for m in range(rows):
         for n in range(cols):
-            print('\t{0}/{1}'.format(counter, size_st))
+            #print('\t{0}/{1}'.format(counter, size_st))
 
-            y = pd.np.array(original_values[m, n, :])
+            y = pd.np.array(original_values[:, m, n])
 
-            y[pd.np.isnan(y)] = fill_val
+            y[pd.np.isnan(y)] = -9999
 
             [yr, outliers] = HANTS(ni, nb, nf, y, ts, HiLo,
-                                   low, high, fet, dod, delta, fill_val)
+                                   low, high, fet, dod, delta)
 
-            values_hants[m, n, :] = yr
-            outliers_hants[m, n, :] = outliers
+            values_hants[:, m, n] = yr
+            outliers_hants[:, m, n] = outliers
 
             counter = counter + 1
+            
+    values_hants[values_hants<-9999] = -9999 * np.float(Scaling_factor)
 
-    nc_file.variables['hants_values'][:] = values_hants
-    nc_file.variables['outliers'][:] = outliers_hants
-    nc_file.variables['combined_values'][:] = pd.np.where(outliers_hants,
-                                                          values_hants,
-                                                          original_values)
+   
+    hants_var = nc_file.createVariable('hants_values', 'i',
+                                       ('time', 'latitude', 'longitude'),
+                                       fill_value=-9999, zlib=True, least_significant_digit=0)
+    hants_var.long_name = 'hants_values'
+    hants_var.grid_mapping = 'crs'
+    hants_var.add_offset = 0.00
+    hants_var.scale_factor = Scaling_factor
+    hants_var.set_auto_maskandscale(False)
+
+    combined_var = nc_file.createVariable('combined_values', 'i',
+                                          ('time', 'latitude', 'longitude'),
+                                          fill_value=-9999, zlib=True, least_significant_digit=0)
+    combined_var.long_name = 'combined_values'
+    combined_var.grid_mapping = 'crs'
+    combined_var.add_offset = 0.00
+    combined_var.scale_factor = Scaling_factor
+    combined_var.set_auto_maskandscale(False)   
+    
+    outliers_var = nc_file.createVariable('outliers', 'i4',
+                                          ('time', 'latitude', 'longitude'),
+                                          fill_value=-9999)
+    outliers_var.long_name = 'outliers'
+    outliers_var.grid_mapping = 'crs'    
+    
+    hants_var[:,:,:]= np.int_(values_hants * 1./np.float(Scaling_factor))
+    outliers_var[:,:,:] = outliers_hants
+    combined_var[:,:,:] = pd.np.where(outliers_hants,
+                                      np.int_(values_hants * 1./np.float(Scaling_factor)),
+                                      np.int_(original_values * 1./np.float(Scaling_factor)))
     # Close netcdf file
     nc_file.close()
 
 
 def HANTS_singlepoint(nc_path, point, nb, nf, HiLo, low, high, fet, dod,
-                      delta, fill_val=-9999.0):
+                      delta):
     '''
     This function runs the python implementation of the HANTS algorithm for a
     single point (lat, lon). It plots the fit and returns a data frame with
@@ -234,7 +298,7 @@ def HANTS_singlepoint(nc_path, point, nb, nf, HiLo, low, high, fet, dod,
     lonx = point[0]
     latx = point[1]
 
-    nc_file = netCDF4.Dataset(nc_path, 'r')
+    nc_file = netCDF4.Dataset(nc_path, 'r', format="NETCDF4_CLASSIC")
 
     time = [pd.to_datetime(i, format='%Y%m%d')
             for i in nc_file.variables['time'][:]]
@@ -267,7 +331,7 @@ def HANTS_singlepoint(nc_path, point, nb, nf, HiLo, low, high, fet, dod,
     lon_i = pd.np.where(lon == lon_closest)[0][0]
 
     # Read values
-    original_values = nc_file.variables['original_values'][lat_i, lon_i, :]
+    original_values = nc_file.variables['original_values'][:, lat_i, lon_i]
 
     # Additional parameters
     ni = len(time)
@@ -276,10 +340,10 @@ def HANTS_singlepoint(nc_path, point, nb, nf, HiLo, low, high, fet, dod,
     # HANTS
     y = pd.np.array(original_values)
 
-    y[pd.np.isnan(y)] = fill_val
+    y[pd.np.isnan(y)] = -9999
 
     [hants_values, outliers] = HANTS(ni, nb, nf, y, ts, HiLo, low, high, fet,
-                                     dod, delta, fill_val)
+                                     dod, delta)
     # Plot
     top = 1.15*max(pd.np.nanmax(original_values),
                    pd.np.nanmax(hants_values))
@@ -313,7 +377,7 @@ def HANTS_singlepoint(nc_path, point, nb, nf, HiLo, low, high, fet, dod,
     return df
 
 
-def HANTS(ni, nb, nf, y, ts, HiLo, low, high, fet, dod, delta, fill_val):
+def HANTS(ni, nb, nf, y, ts, HiLo, low, high, fet, dod, delta):
     '''
     This function applies the Harmonic ANalysis of Time Series (HANTS)
     algorithm originally developed by the Netherlands Aerospace Centre (NLR)
@@ -361,11 +425,11 @@ def HANTS(ni, nb, nf, y, ts, HiLo, low, high, fet, dod, delta, fill_val):
     nout = pd.np.sum(p == 0)
 
     if nout > noutmax:
-        if pd.np.isclose(y, fill_val).any():
+        if pd.np.isclose(y, -9999).any():
             ready = pd.np.array([True])
             yr = y
             outliers = pd.np.zeros((y.shape[0]), dtype=int)
-            outliers[:] = fill_val
+            outliers[:] = -9999
         else:
             raise Exception('Not enough data points.')
     else:
@@ -415,48 +479,6 @@ def HANTS(ni, nb, nf, y, ts, HiLo, low, high, fet, dod, delta, fill_val):
     return [yr, outliers]
 
 
-def export_tiffs(rasters_path_out, nc_path, name_format,
-                 export_hants_only=False):
-    '''
-    This function exports the output of the HANTS analysis.
-    If 'export_hants_only' is False (default), the output rasters have the best
-    value available. Therefore, the cells in the output rasters will have the
-    original value for the cells that are not outliers and the hants values for
-    the cells that are outliers or the cells where data is not available.
-    If 'export_hants_only' is True, the exported rasters have the values
-    obtained by the HANTS algorithm disregarding of the original values.
-    '''
-    # Print
-    print('Exporting...')
-
-    # Create folders
-    if not os.path.exists(rasters_path_out):
-        os.makedirs(rasters_path_out)
-    # Read time data
-    nc_file = netCDF4.Dataset(nc_path, 'r')
-    time_var = nc_file.variables['time'][:]
-    nc_file.close()
-
-    # Output type
-    if export_hants_only:
-        variable_selected = 'hants_values'
-    else:
-        variable_selected = 'combined_values'
-
-    # Loop through netcdf file
-    for yyyymmdd in time_var:
-        print('\t{0}'.format(yyyymmdd))
-        output_name = rasters_path_out + os.sep + name_format.format(yyyymmdd)
-        NetCDF_to_Raster(input_nc=nc_path, output_tiff=output_name,
-                         ras_variable=variable_selected,
-                         x_variable='longitude', y_variable='latitude',
-                         crs={'variable': 'crs', 'wkt': 'crs_wkt'},
-                         time={'variable': 'time', 'value': yyyymmdd})
-    # Return
-    print('Done')
-    return rasters_path_out
-
-
 def plot_point(nc_path, point, ylim=None):
     '''
     This function plots the original time series and the HANTS time series.
@@ -466,7 +488,7 @@ def plot_point(nc_path, point, ylim=None):
     lonx = point[0]
     latx = point[1]
 
-    nc_file = netCDF4.Dataset(nc_path, 'r')
+    nc_file = netCDF4.Dataset(nc_path, 'r', format="NETCDF4_CLASSIC")
 
     time = [pd.to_datetime(i, format='%Y%m%d')
             for i in nc_file.variables['time'][:]]
@@ -531,6 +553,151 @@ def plot_point(nc_path, point, ylim=None):
     return True
 
 
+def Merge_NC_Tiles(nc_paths, nc_path, start_date, end_date, latlim, lonlim, cellsize, epsg, Scaling_factor):
+
+
+    # Latitude and longitude
+    lat_ls = pd.np.arange(latlim[0] + 0.5*cellsize, latlim[1],
+                          cellsize)
+    lat_ls = lat_ls[::-1]  # ArcGIS numpy
+    lon_ls = pd.np.arange(lonlim[0] + 0.5*cellsize, lonlim[1],
+                          cellsize)
+    lat_n = len(lat_ls)
+    lon_n = len(lon_ls)
+    spa_ref = Spatial_Reference(epsg)
+    geo_ex = tuple([lon_ls[0] - 0.5*cellsize, cellsize, 0, lat_ls[0] - cellsize * 0.5, 0, -cellsize])
+    dates_dt = pd.date_range(start_date, end_date, freq='D')
+    dates_ls = [d.toordinal() for d in dates_dt]
+
+    # Create netcdf file
+    print('Merging netCDF files...')
+    nc_file = netCDF4.Dataset(nc_path, 'w', format="NETCDF4_CLASSIC")
+    nc_file.set_fill_on()
+    
+    # Create Dimensions
+    lat_dim = nc_file.createDimension('latitude', lat_n)
+    lon_dim = nc_file.createDimension('longitude', lon_n)
+    time_dim = nc_file.createDimension('time', len(dates_ls))
+
+    # Create Variables
+    crso = nc_file.createVariable('crs', 'i4')
+    crso.long_name = 'Lon/Lat Coords in WGS84'
+    crso.standard_name = 'crs'
+    crso.grid_mapping_name = 'latitude_longitude'
+    crso.projection = spa_ref
+    crso.longitude_of_prime_meridian = 0.0
+    crso.semi_major_axis = 6378137.0
+    crso.inverse_flattening = 298.257223563
+    crso.geo_reference = geo_ex
+
+    lat_var = nc_file.createVariable('latitude', 'f8', ('latitude',))
+    lat_var.units = 'degrees_north'
+    lat_var.standard_name = 'latitude'
+    lat_var.pixel_size = cellsize
+    
+    lon_var = nc_file.createVariable('longitude', 'f8', ('longitude',))
+    lon_var.units = 'degrees_east'
+    lon_var.standard_name = 'longitude'
+    lon_var.pixel_size = cellsize
+
+    time_var = nc_file.createVariable('time', 'f4', ('time',))
+    time_var.standard_name = 'time'
+    time_var.calendar = 'gregorian'
+
+    outliers_var = nc_file.createVariable('outliers', 'i4',
+                                          ('time', 'latitude', 'longitude'),
+                                          fill_value=-9999)
+    outliers_var.long_name = 'outliers'
+    outliers_var.grid_mapping = 'crs'
+
+    original_var = nc_file.createVariable('original_values', 'i',
+                                          ('time', 'latitude', 'longitude'),
+                                          fill_value=-9999, zlib=True, least_significant_digit=0)
+    original_var.long_name = 'original_values'
+    original_var.grid_mapping = 'crs'  
+    original_var.scale_factor = Scaling_factor
+    original_var.add_offset = 0.00      
+    original_var.set_auto_maskandscale(False)
+
+    hants_var = nc_file.createVariable('hants_values', 'i',
+                                       ('time', 'latitude', 'longitude'),
+                                       fill_value=-9999, zlib=True, least_significant_digit=0)
+    hants_var.long_name = 'hants_values'
+    hants_var.grid_mapping = 'crs'
+    hants_var.scale_factor = Scaling_factor
+    hants_var.add_offset = 0.00    
+    hants_var.set_auto_maskandscale(False)
+
+    combined_var = nc_file.createVariable('combined_values', 'i',
+                                          ('time', 'latitude', 'longitude'),
+                                          fill_value=-9999, zlib=True, least_significant_digit=0)
+    combined_var.long_name = 'combined_values'
+    combined_var.grid_mapping = 'crs'
+    combined_var.scale_factor = Scaling_factor
+    combined_var.add_offset = 0.00    
+    combined_var.set_auto_maskandscale(False)
+
+    print('\tFill in End Variables')
+
+    # Fill in time and space dimention
+    lat_var[:] = lat_ls
+    lon_var[:] = lon_ls
+    time_var[:] = dates_ls
+
+    parameter = 'outliers'
+    Array = Get_Array(nc_path, nc_paths, parameter)
+    Array[np.isnan(Array)] = -9999
+    outliers_var[:,:,:] = np.int_(Array)
+    del Array
+
+    parameter = 'original_values'
+    Array = Get_Array(nc_path, nc_paths, parameter)
+    Array[np.isnan(Array)] = -9999 * np.float(Scaling_factor)
+    Array[Array < -9999] = -9999 * np.float(Scaling_factor)
+    Array = np.int_(Array * 1./np.float(Scaling_factor))
+    original_var[:,:,:] = Array
+    del Array
+
+    parameter = 'hants_values'
+    Array = Get_Array(nc_path, nc_paths, parameter)
+    Array[np.isnan(Array)] = -9999 * np.float(Scaling_factor)
+    Array[Array < -9999] = -9999 * np.float(Scaling_factor)
+    Array = np.int_(Array * 1./np.float(Scaling_factor))
+    hants_var[:,:,:] = Array
+    del Array
+
+    parameter = 'combined_values'
+    Array = Get_Array(nc_path, nc_paths, parameter)
+    Array[np.isnan(Array)] = -9999 * np.float(Scaling_factor)
+    Array[Array < -9999] = -9999 * np.float(Scaling_factor)
+    Array = np.int_(Array * 1./np.float(Scaling_factor))
+    combined_var[:,:,:] = Array
+    del Array
+
+    nc_file.close()
+    return()
+
+def Get_Array(nc_path, nc_paths, parameter):
+
+    nc_file = netCDF4.Dataset(nc_path, 'r', format="NETCDF4_CLASSIC")
+    latx = nc_file.variables['latitude'][:]
+    lonx = nc_file.variables['longitude'][:]
+    timeo = nc_file.variables['time'][:]
+
+    Array = np.ones([len(timeo), len(latx), len(lonx)]) * np.nan
+
+    for file_nc in nc_paths:
+        nc_file_part = netCDF4.Dataset(file_nc)
+
+        latx_part = nc_file_part.variables['latitude'][:]
+        lonx_part = nc_file_part.variables['longitude'][:]
+        start_y = np.argwhere(latx == latx_part[0])[0][0]
+        start_x = np.argwhere(lonx == lonx_part[0])[0][0]
+        Array_part = nc_file_part.variables[parameter][:,:,:]
+        Array[:, start_y: start_y + Array_part.shape[1],start_x: start_x + Array_part.shape[2]] = Array_part
+
+    return(Array)
+
 def makediag3d(M):
     '''
     Computing diagonal for each row of a 2d array.
@@ -540,3 +707,121 @@ def makediag3d(M):
     b[:, ::M.shape[1]+1] = M
     # Return
     return b.reshape(M.shape[0], M.shape[1], M.shape[1])
+
+def Spatial_Reference(epsg, return_string=True):
+    """
+    Obtain a spatial reference from the EPSG parameter
+    """
+    srs = osr.SpatialReference()
+    srs.ImportFromEPSG(epsg)
+    if return_string:
+        return srs.ExportToWkt()
+    else:
+        return srs
+
+def Get_epsg(g, extension = 'tiff'):
+    """
+    This function reads the projection of a GEOGCS file or tiff file
+
+    Keyword arguments:
+    g -- string
+        Filename to the file that must be read
+    extension -- tiff or GEOGCS
+        Define the extension of the dataset (default is tiff)
+    """
+    try:
+        if extension == 'tiff':
+            # Get info of the dataset that is used for transforming
+            g_proj = g.GetProjection()
+            Projection=g_proj.split('EPSG","')
+        if extension == 'GEOGCS':
+            Projection = g
+        epsg_to=int((str(Projection[-1]).split(']')[0])[0:-1])
+    except:
+       epsg_to=4326
+       #print 'Was not able to get the projection, so WGS84 is assumed'
+    return(epsg_to)
+
+def reproject_dataset_example(dataset, dataset_example, method=1):
+    """
+    A sample function to reproject and resample a GDAL dataset from within
+    Python. The user can define the wanted projection and shape by defining an example dataset.
+
+    Keywords arguments:
+    dataset -- 'C:/file/to/path/file.tif' or a gdal file (gdal.Open(filename))
+        string that defines the input tiff file or gdal file
+    dataset_example -- 'C:/file/to/path/file.tif' or a gdal file (gdal.Open(filename))
+        string that defines the input tiff file or gdal file
+    method -- 1,2,3,4 default = 1
+        1 = Nearest Neighbour, 2 = Bilinear, 3 = lanzcos, 4 = average
+    """
+    # open dataset that must be transformed
+    try:
+        if os.path.splitext(dataset)[-1] == '.tif':
+            g = gdal.Open(dataset)
+        else:
+            g = dataset
+    except:
+            g = dataset
+    epsg_from = Get_epsg(g)
+
+    #exceptions
+    if epsg_from == 9001:
+        epsg_from = 5070
+
+    # open dataset that is used for transforming the dataset
+    gland = dataset_example
+    epsg_to = Get_epsg(gland)
+
+    # Set the EPSG codes
+    osng = osr.SpatialReference()
+    osng.ImportFromEPSG(epsg_to)
+    wgs84 = osr.SpatialReference()
+    wgs84.ImportFromEPSG(epsg_from)
+
+    # Get shape and geo transform from example
+    geo_land = gland.GetGeoTransform()
+    col=gland.RasterXSize
+    rows=gland.RasterYSize
+
+    # Create new raster
+    mem_drv = gdal.GetDriverByName('MEM')
+    dest1 = mem_drv.Create('', col, rows, 1, gdal.GDT_Float32)
+    dest1.SetGeoTransform(geo_land)
+    dest1.SetProjection(osng.ExportToWkt())
+
+    # Perform the projection/resampling
+    if method is 1:
+        gdal.ReprojectImage(g, dest1, wgs84.ExportToWkt(), osng.ExportToWkt(), gdal.GRA_NearestNeighbour)
+    if method is 2:
+        gdal.ReprojectImage(g, dest1, wgs84.ExportToWkt(), osng.ExportToWkt(), gdal.GRA_Bilinear)
+    if method is 3:
+        gdal.ReprojectImage(g, dest1, wgs84.ExportToWkt(), osng.ExportToWkt(), gdal.GRA_Lanczos)
+    if method is 4:
+        gdal.ReprojectImage(g, dest1, wgs84.ExportToWkt(), osng.ExportToWkt(), gdal.GRA_Average)
+    return(dest1)
+
+def Save_as_MEM(data='', geo='', projection=''):
+    """
+    This function save the array as a memory file
+
+    Keyword arguments:
+    data -- [array], dataset of the geotiff
+    geo -- [minimum lon, pixelsize, rotation, maximum lat, rotation,
+            pixelsize], (geospatial dataset)
+    projection -- interger, the EPSG code
+    """
+    # save as a geotiff
+    driver = gdal.GetDriverByName("MEM")
+    dst_ds = driver.Create('', int(data.shape[1]), int(data.shape[0]), 1,
+                           gdal.GDT_Float32)
+    srse = osr.SpatialReference()
+    if projection == '':
+        srse.SetWellKnownGeogCS("WGS84")
+    else:
+        srse.SetWellKnownGeogCS(projection)
+    dst_ds.SetProjection(srse.ExportToWkt())
+    dst_ds.GetRasterBand(1).SetNoDataValue(-9999)
+    dst_ds.SetGeoTransform(geo)
+    dst_ds.GetRasterBand(1).WriteArray(data)
+    return(dst_ds)

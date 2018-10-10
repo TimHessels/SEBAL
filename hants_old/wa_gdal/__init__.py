@@ -96,9 +96,9 @@ export_tiffs(rasters_path_out, nc_path, name_format)
 """
 
 from .main import (run_HANTS, create_netcdf, HANTS_netcdf, HANTS,
-                   HANTS_singlepoint, plot_point)
+                   export_tiffs, HANTS_singlepoint, plot_point)
 
 __all__ = ['run_HANTS', 'create_netcdf', 'HANTS_netcdf', 'HANTS',
-           'HANTS_singlepoint', 'plot_point']
+           'export_tiffs', 'HANTS_singlepoint', 'plot_point']
 
 __version__ = '0.1'

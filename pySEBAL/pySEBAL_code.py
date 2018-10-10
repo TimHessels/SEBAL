@@ -14,7 +14,6 @@ import numpy as np
 import osr
 import gdal
 from math import sin, cos, pi, tan
-import scipy.misc as misc
 import subprocess
 import numpy.polynomial.polynomial as poly
 from openpyxl import load_workbook
@@ -83,7 +82,7 @@ def main(number, inputExcel):
     print(' ')
 
     # Data for Module 4 - Calc meteo
-    Temp_lapse_rate = 0.0065  # Temperature lapse rate (°K/m)
+    Temp_lapse_rate = 0.0065 #0.01199   # Temperature lapse rate (°K/m)
     Gsc = 1367        # Solar constant (W / m2)
     SB_const = 5.6703E-8  # Stefan-Bolzmann constant (watt/m2/°K4)
     print('General Constants: Calc Meteo (Part 4)')
@@ -1611,7 +1610,7 @@ def Calc_surface_water_temp(Temp_inst,Landsat_nr,Lmax,Lmin,therm_data,b10_emissi
             L_lambda_b10 = (Lmax[-1] - Lmin[-1]) / (65535-1) * therm_data[:, :, 0] + Lmin[-1]
 
             # Get Temperature
-            Temp_TOA = Get_Thermal(L_lambda_b10,Rp,Temp_inst,tau_sky,b10_emissivity,k1,k2)
+            Surface_temp = Get_Thermal(L_lambda_b10,Rp,Temp_inst,tau_sky,b10_emissivity,k1,k2)
 
         elif Bands_thermal == 2:
             L_lambda_b10 = (Lmax[-2] - Lmin[-2]) / (65535-1) * therm_data[:, :, 0] + Lmin[-2]
@@ -1623,7 +1622,7 @@ def Calc_surface_water_temp(Temp_inst,Landsat_nr,Lmax,Lmin,therm_data,b10_emissi
             # From Band 11:
             Temp_TOA_11 = (k2_c[1] / np.log(k1_c[1] / L_lambda_b11 + 1.0))
             # Combined:
-            Temp_TOA = (Temp_TOA_10 + 1.378 * (Temp_TOA_10 - Temp_TOA_11) +
+            Surface_temp = (Temp_TOA_10 + 1.378 * (Temp_TOA_10 - Temp_TOA_11) +
                            0.183 * np.power(Temp_TOA_10 - Temp_TOA_11, 2) - 0.268 +
                            (54.30 - 2.238 * eact) * (1 - b10_emissivity))
 
@@ -1633,7 +1632,7 @@ def Calc_surface_water_temp(Temp_inst,Landsat_nr,Lmax,Lmin,therm_data,b10_emissi
         L_lambda_b6 = (Lmax[-1] - Lmin[-1]) / (256-1) * therm_data[:, :, 0] + Lmin[-1]
 
         # Brightness temperature - From Band 6:
-        Temp_TOA = Get_Thermal(L_lambda_b6,Rp,Temp_inst,tau_sky,b10_emissivity,k1,k2)
+        Surface_temp = Get_Thermal(L_lambda_b6,Rp,Temp_inst,tau_sky,b10_emissivity,k1,k2)
 
     elif Landsat_nr == 5:
         k1=607.76
@@ -1642,10 +1641,9 @@ def Calc_surface_water_temp(Temp_inst,Landsat_nr,Lmax,Lmin,therm_data,b10_emissi
                        Lmin[-1])
 
        # Brightness temperature - From Band 6:
-        Temp_TOA = Get_Thermal(L_lambda_b6,Rp,Temp_inst,tau_sky,b10_emissivity,k1,k2)
+        Surface_temp = Get_Thermal(L_lambda_b6,Rp,Temp_inst,tau_sky,b10_emissivity,k1,k2)
 
     # Surface temperature
-    Surface_temp = Temp_TOA
     Surface_temp = Surface_temp.clip(230.0, 360.0)
 
     # Cloud mask:
@@ -1945,7 +1943,7 @@ def TwoPeriods(delta,s,phi):
     Based on Richard G. Allen 2006
     Create a boolean map with True values for places with two sunsets
     '''
-    TwoPeriods = (np.sin(s) > np.ones(s.shape)*np.sin(phi)*np.sin(delta)+np.cos(phi)*np.cos(delta))
+    TwoPeriods = (np.sin(s) > np.ones(s.shape)*np.sin(phi)*np.cos(delta)+np.cos(phi)*np.sin(delta))
 
     return(TwoPeriods)
 
@@ -2574,12 +2572,15 @@ def resize_array_example(Array_in, Array_example, method=1):
 
     if method == 1:
         interpolation_method='nearest'
+        interpolation_number = 0
     if method == 2:
         interpolation_method='bicubic'
+        interpolation_number = 3
     if method == 3:
         interpolation_method='bilinear'
+        interpolation_number = 1   
     if method == 4:
-        interpolation_method='cubic'
+        interpolation_method='cubic'     
     if method == 5:
         interpolation_method='lanczos'
 
@@ -2590,14 +2591,25 @@ def resize_array_example(Array_in, Array_example, method=1):
             Array_in_slice = Array_in[i,:,:]
             size=tuple(Array_out_shape[1:])
 
-            Array_out_slice= misc.imresize(np.float_(Array_in_slice), size, interp=interpolation_method, mode='F')
+            if sys.version_info[0] == 2:
+                import scipy.misc as misc
+                Array_out_slice= misc.imresize(np.float_(Array_in_slice), size, interp=interpolation_method, mode='F')
+            if sys.version_info[0] == 3:
+                import skimage.transform as transform
+                Array_out_slice= transform.resize(np.float_(Array_in_slice), size, order=interpolation_number)
+                
             Array_out[i,:,:] = Array_out_slice
 
     elif len(Array_out_shape) == 2:
 
         size=tuple(Array_out_shape)
-        Array_out= misc.imresize(np.float_(Array_in), size, interp=interpolation_method, mode='F')
-
+        if sys.version_info[0] == 2:
+            import scipy.misc as misc
+            Array_out= misc.imresize(np.float_(Array_in), size, interp=interpolation_method, mode='F')
+        if sys.version_info[0] == 3:
+            import skimage.transform as transform
+            Array_out= transform.resize(np.float_(Array_in), size, order=interpolation_number)
+      
     else:
         print('only 2D or 3D dimensions are supported')
 

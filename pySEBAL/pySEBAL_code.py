@@ -397,9 +397,9 @@ def main(number, inputExcel):
     # now we can also get the time for a MODIS run
     if Image_Type == 3:
 
-           hour, minutes = input_MODIS.Modis_Time(wb, epsg_to, number, proyDEM_fileName)
-           hour = np.nanmean(hour)
-           minutes = np.nanmean(minutes)
+       hour, minutes = input_MODIS.Modis_Time(wb, epsg_to, number, proyDEM_fileName)
+       hour = np.nanmean(hour)
+       minutes = np.nanmean(minutes)
 
 
     # Calculation of extraterrestrial solar radiation for slope and aspect
@@ -432,8 +432,8 @@ def main(number, inputExcel):
     Output_filename_temp_24 = os.path.join(output_folder, 'Output_radiation_balance', 'Temp_24_input.tif')
     Temp_24, Temp_24_source = Open_constant_or_spatial_map(ws, "C%d" %number, Output_filename_temp_24, proyDEM_fileName)
     print('__________________________Daily Temperature_________________________')
-    print('Source of daily temperature = %s' %str(Temp_24_source))
-    print('Average daily temperature = %s Kelvin\n' %float(np.nanmean(Temp_24)))
+    print('Source of 24H temperature = %s' %str(Temp_24_source))
+    print('Average 24H temperature = %s Kelvin\n' %float(np.nanmean(Temp_24)))
 
     # 6c) Instantanious Relative Humidity
     Output_filename_RH_inst = os.path.join(output_folder, 'Output_radiation_balance', 'RH_inst_input.tif')
@@ -446,8 +446,8 @@ def main(number, inputExcel):
     Output_filename_RH_24 = os.path.join(output_folder, 'Output_radiation_balance', 'RH_24_input.tif')
     RH_24, RH_24_source = Open_constant_or_spatial_map(ws, "E%d" %number, Output_filename_RH_24, proyDEM_fileName)
     print('____________________Daily Relative Humidity_________________________')
-    print('Source of daily relative humidity = %s' %str(RH_24_source))
-    print('Average daily relative humidity = %s Procent\n' %float(np.nanmean(RH_24)))
+    print('Source of 24H relative humidity = %s' %str(RH_24_source))
+    print('Average 24H relative humidity = %s Procent\n' %float(np.nanmean(RH_24)))
 
     # 6) Wind speed measurement height
     zx = float(ws['F%d' %number].value)
@@ -465,8 +465,8 @@ def main(number, inputExcel):
     Output_filename_wind_24 = os.path.join(output_folder, 'Output_radiation_balance', 'Wind_24_input.tif')
     Wind_24, Wind_24_source = Open_constant_or_spatial_map(ws, "H%d" %number, Output_filename_wind_24, proyDEM_fileName)
     print('__________________________Daily Wind Speed__________________________')
-    print('Source of daily wind speed = %s' %str(Wind_24_source))
-    print('Average daily wind speed = %s m/s\n' %float(np.nanmean(Wind_24)))
+    print('Source of 24H wind speed = %s' %str(Wind_24_source))
+    print('Average 24H wind speed = %s m/s\n' %float(np.nanmean(Wind_24)))
 
     # 6g) instantanious radiation or transmissivity
 
@@ -503,14 +503,14 @@ def main(number, inputExcel):
         Rs_24, Rs_24_source = Open_constant_or_spatial_map(ws, "M%d" %number, Output_filename_radiation_24, proyDEM_fileName)
         print('____________________________Daily Radiation_________________________')
         print('Source of daily solar radiation = %s' %str(Rs_24_source))
-        print('Average daily solar radiation = %s W/m2\n' %float(np.nanmean(Rs_24)))
+        print('Average 24H solar radiation = %s W/m2\n' %float(np.nanmean(Rs_24)))
 
     if Method_Radiation_24 == 2:
         Output_filename_transm_24 = os.path.join(output_folder, 'Output_radiation_balance', 'Transm_24_input.tif')
         Transm_24, Transm_24_source = Open_constant_or_spatial_map(ws, "N%d" %number, Output_filename_transm_24, proyDEM_fileName)
         print('___________________________Daily Transmissivity_____________________')
-        print('Source of daily transmissivity = %s' %str(Transm_24_source))
-        print('Average daily transmissivity = %s\n' %float(np.nanmean(Transm_24)))
+        print('Source of 24H transmissivity = %s' %str(Transm_24_source))
+        print('Average 24H transmissivity = %s\n' %float(np.nanmean(Transm_24)))
 
     # 6i) Obstacle height
     Output_filename_h_obst = os.path.join(output_folder, 'Output_soil_moisture', 'Obst_h_input.tif')
@@ -597,8 +597,8 @@ def main(number, inputExcel):
     eact_24 = RH_24 * esat_24 / 100
     print('Instantaneous Saturation Vapor Pressure = ', '%0.3f (kPa)' % np.nanmean(esat_inst))
     print('Instantaneous Actual vapour pressure =  ', '%0.3f (kPa)' % np.nanmean(eact_inst))
-    print('Daily Saturation Vapor Pressure = ', '%0.3f (kPa)' % np.nanmean(esat_24))
-    print('Daily Actual vapour pressure =  ', '%0.3f (kPa)' % np.nanmean(eact_24))
+    print('24H Saturation Vapor Pressure = ', '%0.3f (kPa)' % np.nanmean(esat_24))
+    print('24H Actual vapour pressure =  ', '%0.3f (kPa)' % np.nanmean(eact_24))
 
     print('---------------------------------------------------------')
     print('------------ Open VIS Parameters (Part 5) ---------------')
@@ -825,9 +825,9 @@ def main(number, inputExcel):
 
     # Solar radiation from extraterrestrial radiation
     Rs_24_flat = Ra24_flat * Transm_24
-    print('Mean Daily Transmissivity = %0.3f (-)' % np.nanmean(Transm_24))
-    print('Mean Daily incoming net Radiation = %0.3f (W/m2)' % np.nanmean(Rs_24))
-    print('Mean Daily incoming net Radiation Flat Terrain = %0.3f (W/m2)' % np.nanmean(Rs_24_flat))
+    print('Mean 24H Transmissivity = %0.3f (-)' % np.nanmean(Transm_24))
+    print('Mean 24H Incoming Shortwave Radiation = %0.3f (W/m2)' % np.nanmean(Rs_24))
+    print('Mean 24H Incoming Shortwave Radiation Flat Terrain = %0.3f (W/m2)' % np.nanmean(Rs_24_flat))
 
     # If method of instantaneous radiation 1 is used than calculate the Transmissivity
     if Method_Radiation_inst==1:
@@ -853,8 +853,7 @@ def main(number, inputExcel):
     # calculates the ground heat flux and the solar radiation
     Rn_24,rn_inst,g_inst,Rnl_24_FAO = Calc_Meteo(Rs_24,eact_24,Temp_24,Surf_albedo,dr,tir_emis,temp_surface_sharpened,water_mask,NDVI,Transm_24,SB_const,lw_in_inst,Rs_inst)
 
-    print('Mean Daily Net Radiation (FAO) = %0.3f (W/m2)' % np.nanmean(Rnl_24_FAO))
-    print('Mean Daily Net Radiation = %0.3f (W/m2)' % np.nanmean(Rn_24))
+    print('Mean 24H Net Radiation = %0.3f (W/m2)' % np.nanmean(Rn_24))
     print('Mean instantaneous Net Radiation = %0.3f (W/m2)' % np.nanmean(rn_inst))
     print('Mean instantaneous Ground Heat Flux = %0.3f (W/m2)' % np.nanmean(g_inst))
 
@@ -1466,7 +1465,7 @@ def Correct_Surface_Temp(Surface_temp,Temp_lapse_rate,DEM_resh,Pair,dr,Transm_co
     air_dens = 1000 * Pair / (1.01 * Surface_temp * 287)
     #
     ts_dem = (Temp_corr + (Gsc * dr * Transm_corr * cos_zn -
-              Gsc * dr * Transm_corr * cos_zenith_flat) / (air_dens * 1004 * 0.050))
+              Gsc * dr * Transm_corr * cos_zenith_flat) / (air_dens * 1004 * 0.050)) #0.05 dikte van de lucht laag boven grond
     #(Temp_corr - (Gsc * dr * Transm_corr * cos_zn -
     #          Gsc * dr * Transm_corr * cos_zenith_flat) / (air_dens * 1004 * 0.050))
     ts_dem[ClipLandsat==1]=np.nan
@@ -1573,16 +1572,16 @@ def Calc_Meteo(Rs_24,eact_24,Temp_24,Surf_albedo,dr,tir_emis,Surface_temp,water_
 
     Rnl_24_Slob = 110 * Transm_24
 
-    print('Mean Daily Net longwave Radiation (Slob) = %0.3f (W/m2)' % np.nanmean(Rnl_24_Slob))
-    print('Mean Daily Net longwave Radiation (FAO) = %0.3f (W/m2)' % np.nanmean(Rnl_24_FAO))
+    print('Mean 24H Net longwave Radiation (Slob) = -%0.3f (W/m2)' % np.nanmean(Rnl_24_Slob))
+    print('Mean 24H Net longwave Radiation (FAO) = -%0.3f (W/m2)' % np.nanmean(Rnl_24_FAO))
 
     # Net 24 hrs radiation (W/m2):
     Rn_24_FAO = Rns_24 - Rnl_24_FAO          # FAO equation
     Rn_24_Slob = Rns_24 - Rnl_24_Slob       # Slob equation
     Rn_24 = (Rn_24_FAO + Rn_24_Slob) / 2  # Average
 
-    print('Mean Daily Net Radiation (Slob) = %0.3f (W/m2)' % np.nanmean(Rn_24_Slob))
-    print('Mean Daily Net Radiation (FAO) = %0.3f (W/m2)' % np.nanmean(Rn_24_FAO))
+    print('Mean 24H Net Radiation (Slob) = %0.3f (W/m2)' % np.nanmean(Rn_24_Slob))
+    print('Mean 24H Net Radiation (FAO) = %0.3f (W/m2)' % np.nanmean(Rn_24_FAO))
 
     # Instantaneous outgoing longwave radiation:
     lw_out_inst = tir_emis * SB_const * np.power(Surface_temp, 4)
@@ -1911,18 +1910,19 @@ def IntegrateSlope(constant,sunrise,sunset,delta,s,gamma,phi):
     ID = np.where(np.ravel(SunOrNoSun==True))
 
     # No sunset
-    if abs(delta+phi.flat[ID])>(np.pi/2):
+    IDNoSunset = np.where(np.ravel(abs(delta+phi.flat[ID])>(np.pi/2)))
+    if np.any(IDNoSunset) == True:
         sunset1=np.pi
         sunrise1=-np.pi
-        integral.flat[ID] = constant * (np.sin(delta)*np.sin(phi)*np.cos(s)*(sunset1-sunrise1)
+        integral.flat[IDNoSunset] = constant * (np.sin(delta)*np.sin(phi)*np.cos(s)*(sunset1-sunrise1)
             - np.sin(delta)*np.cos(phi)*np.sin(s)*np.cos(gamma)*(sunset1-sunrise1)
             + np.cos(delta)*np.cos(phi)*np.cos(s)*(np.sin(sunset1)-np.sin(sunrise1))
             + np.cos(delta)*np.sin(phi)*np.sin(s)*np.cos(gamma)*(np.sin(sunset1)-np.sin(sunrise1))
             - np.cos(delta)*np.sin(s)*np.sin(gamma)*(np.cos(sunset1)-np.cos(sunrise1)))
 
     # No sunrise
-    elif np.abs(delta-phi.flat[ID])>(np.pi/2):
-        integral.flat[ID]=constant * (np.sin(delta)*np.sin(phi)*np.cos(s)*(0)
+    elif np.any(IDNoSunset) == False:
+        integral.flat[IDNoSunset==False]=constant * (np.sin(delta)*np.sin(phi)*np.cos(s)*(0)
             - np.sin(delta)*np.cos(phi)*np.sin(s)*np.cos(gamma)*(0)
             + np.cos(delta)*np.cos(phi)*np.cos(s)*(np.sin(0)-np.sin(0))
             + np.cos(delta)*np.sin(phi)*np.sin(s)*np.cos(gamma)*(np.sin(0)-np.sin(0))
@@ -1963,7 +1963,7 @@ def SunHours(delta,slope,slopedir,lat):
     # This means that their is either no sunrise (whole day night) or no sunset (whole day light)
     # For whole day light, use the horizontal sunrise and whole day night a zero..
     Angle4 = AngleSlope(a,b,c,-bound)
-    RiseFinal[np.logical_and(np.isnan(riseSlope),Angle4 >= 0)] = -bound[np.logical_and(np.isnan(riseSlope),Angle4 >= 0)]
+    RiseFinal[np.logical_and(np.isnan(riseSlope),Angle4 >= 0.0)] = -bound[np.logical_and(np.isnan(riseSlope),Angle4 >= 0.0)]
     Calculated[np.isnan(riseSlope)] = True
 
     # Step 1 > 4
@@ -1987,7 +1987,7 @@ def SunHours(delta,slope,slopedir,lat):
     Calculated = np.zeros(slope.shape, dtype = bool)
 
     Angle4 = AngleSlope(a,b,c,bound)
-    SetFinal[np.logical_and(np.isnan(setSlope),Angle4 >= 0)] = bound[np.logical_and(np.isnan(setSlope),Angle4 >= 0)]
+    SetFinal[np.logical_and(np.isnan(setSlope),Angle4 >= 0.0)] = bound[np.logical_and(np.isnan(setSlope),Angle4 >= 0.0)]
     Calculated[np.isnan(setSlope)] = True
 
     # Step 1 > 4
@@ -2011,8 +2011,8 @@ def SunHours(delta,slope,slopedir,lat):
     #    SetFinal[np.logical_and(Calculated == False,Angle4 >= 0)] = bound[np.logical_and(Calculated == False,Angle4 >= 0)]
 
     # If Sunrise is after Sunset there is no sunlight during the day
-    SetFinal[SetFinal <= RiseFinal] = 0
-    RiseFinal[SetFinal <= RiseFinal] = 0
+    SetFinal[SetFinal <= RiseFinal] = 0.0
+    RiseFinal[SetFinal <= RiseFinal] = 0.0
 
     return(RiseFinal,SetFinal)
 
@@ -2080,8 +2080,10 @@ def Calc_Gradient(dataset,pixel_spacing):
     rad2deg = 180.0 / np.pi  # Factor to transform from rad to degree
 
     # Calculate slope
-    x, y = np.gradient(dataset)
-    slope = np.arctan(np.sqrt(np.square(x/pixel_spacing) + np.square(y/pixel_spacing))) * rad2deg
+    x, y = np.gradient(dataset, pixel_spacing, pixel_spacing)
+    hypotenuse_array = np.hypot(x,y)
+    slope = np.arctan(hypotenuse_array) * rad2deg
+    #slope = np.arctan(np.sqrt(np.square(x/pixel_spacing) + np.square(y/pixel_spacing))) * rad2deg
 
     # calculate aspect
     aspect = np.arctan2(y/pixel_spacing, -x/pixel_spacing) * rad2deg
@@ -2218,7 +2220,7 @@ def reproject_dataset(dataset, pixel_spacing, UTM_Zone):
     dest.SetProjection(osng.ExportToWkt())
 
     # Perform the projection/resampling
-    gdal.ReprojectImage(g, dest, wgs84.ExportToWkt(), osng.ExportToWkt(),gdal.GRA_Bilinear)
+    gdal.ReprojectImage(g, dest, wgs84.ExportToWkt(), osng.ExportToWkt(),gdal.GRA_CubicSpline)
 
     return dest, ulx, lry, lrx, uly, epsg_to
 #------------------------------------------------------------------------------
@@ -2347,7 +2349,7 @@ def sensible_heat(rah, ustar, rn_inst, g_inst, ts_dem, ts_dem_hot, ts_dem_cold,
 
     """
     # Near surface temperature difference (dT):
-    dT_ini = (rn_inst - g_inst) * rah / (air_dens * 1004)
+    dT_ini = (rn_inst - g_inst) * rah / (air_dens * 1004) # (1-max_EF) * (rn_inst - g_inst) * rah / (air_dens * 1004)
     dT_hot = np.copy(dT_ini)
 
     #dT_hot_fileName = os.path.join(output_folder, 'Output_cloud_masked','test.tif')
@@ -2422,7 +2424,7 @@ def Reshape_Reproject_Input_data(input_File_Name, output_File_Name, Example_exte
    return(data)
 
 #------------------------------------------------------------------------------
-def Thermal_Sharpening(surface_temp_up, NDVI_up, NDVI, Box, dest_up, output_folder, ndvi_fileName, shape_down, dest_down):
+def Thermal_Sharpening(surface_temp_up, NDVI_up, NDVI, Box, dest_up, output_folder, ndvi_fileName, shape_down, dest_down, watermask = False):
 
     # Creating arrays to store the coefficients
     CoefA=np.zeros((len(surface_temp_up),len(surface_temp_up[1])))
@@ -2436,6 +2438,10 @@ def Thermal_Sharpening(surface_temp_up, NDVI_up, NDVI, Box, dest_up, output_fold
             if np.isnan(np.sum(surface_temp_up[i,j]))==False and np.isnan(np.sum(NDVI_up[i,j]))==False:
                 x_data = NDVI_up[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)), int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]), j + (Box - 1) / 2 + 1))][np.logical_and(np.logical_not(np.isnan(NDVI_up[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)),int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]), j + (Box - 1) / 2 + 1))])), np.logical_not(np.isnan(surface_temp_up[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)),int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]),j + (Box - 1) / 2 + 1))])))]
                 y_data = surface_temp_up[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)), int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]), j + (Box - 1) / 2 + 1))][np.logical_and(np.logical_not(np.isnan(NDVI_up[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)),int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]),j + (Box - 1) / 2 + 1))])), np.logical_not(np.isnan(surface_temp_up[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)),int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]), j + (Box - 1) / 2 + 1))])))]
+                if not watermask is False:
+                    wm_data = watermask[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)), int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]), j + (Box - 1) / 2 + 1))][np.logical_and(np.logical_not(np.isnan(NDVI_up[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)),int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]),j + (Box - 1) / 2 + 1))])), np.logical_not(np.isnan(surface_temp_up[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)),int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]), j + (Box - 1) / 2 + 1))])))]
+                    x_data = x_data[wm_data==0]
+                    y_data = y_data[wm_data==0]
                 x_data[~np.isnan(x_data)]
                 y_data[~np.isnan(y_data)]
                 if len(x_data)>6:
@@ -2578,9 +2584,9 @@ def resize_array_example(Array_in, Array_example, method=1):
         interpolation_number = 3
     if method == 3:
         interpolation_method='bilinear'
-        interpolation_number = 1   
+        interpolation_number = 1
     if method == 4:
-        interpolation_method='cubic'     
+        interpolation_method='cubic'
     if method == 5:
         interpolation_method='lanczos'
 
@@ -2597,7 +2603,7 @@ def resize_array_example(Array_in, Array_example, method=1):
             if sys.version_info[0] == 3:
                 import skimage.transform as transform
                 Array_out_slice= transform.resize(np.float_(Array_in_slice), size, order=interpolation_number)
-                
+
             Array_out[i,:,:] = Array_out_slice
 
     elif len(Array_out_shape) == 2:
@@ -2609,7 +2615,7 @@ def resize_array_example(Array_in, Array_example, method=1):
         if sys.version_info[0] == 3:
             import skimage.transform as transform
             Array_out= transform.resize(np.float_(Array_in), size, order=interpolation_number)
-      
+
     else:
         print('only 2D or 3D dimensions are supported')
 

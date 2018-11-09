@@ -11,11 +11,11 @@ import os
 import QGIS_ as qgis
 #%%set environments
 
-print "Choose folder containing the 'Kc' files"
+print("Choose folder containing the 'Kc' files")
 input_folder = fnx.SelectFolderDialog()
-print "Choose the folder to save the output"
+print("Choose the folder to save the output")
 output_folder =fnx.SelectFolderDialog()
-print "select the 'ET0.csv' file"
+print("select the 'ET0.csv' file")
 ET0_daily = fnx.OpenFileDialog()
 #%%
 #input_folder = r'D:\OneDrive\Courses\Environmental Programming\CJ\kc'
@@ -23,7 +23,7 @@ ET0_daily = fnx.OpenFileDialog()
 Kc_files = fnx.ListFilesInFolder (input_folder,'.tif')                                  #get list of kc files
 
 while len(Kc_files) == 0:
-    print "The selected folder does not have 'Kc' files \nPlease choose a folder with 'Kc' files"
+    print("The selected folder does not have 'Kc' files \nPlease choose a folder with 'Kc' files")
     input_folder = fnx.SelectFolderDialog()
     Kc_files = fnx.ListFilesInFolder (input_folder,'.tif')
 

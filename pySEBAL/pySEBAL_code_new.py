@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 
 """
-pySEBAL_3.4.0
+pySEBAL_3.4.1
 
 @author: Tim Hessels, Jonna van Opstal, Patricia Trambauer, Wim Bastiaanssen, Mohamed Faouzi Smiej, Yasir Mohamed, and Ahmed Er-Raji
-         UNESCO-IHE
-         June 2018
+
 """
 import sys
 import os
@@ -53,7 +52,7 @@ def main(number, inputExcel):
     print('.................................................................. ')
     print('......................SEBAL Model running ........................ ')
     print('.................................................................. ')
-    print('pySEBAL version 3.4.0 Github')
+    print('pySEBAL version 3.4.1 Github')
     print('General Input:')
     print('input_folder = %s' %str(input_folder))
     print('output_folder = %s' %str(output_folder))
@@ -607,12 +606,6 @@ def main(number, inputExcel):
     print('---------------- Calc Meteo (Part 5) --------------------')
     print('---------------------------------------------------------')
 
-    # Atmospheric pressure for altitude:
-    Pair = 101.3 * np.power((293 - Temp_lapse_rate * DEM_resh) / 293, 5.26)
-
-    # Psychrometric constant (kPa / °C), FAO 56, eq 8.:
-    Psychro_c = 0.665E-3 * Pair
-
     # Saturation Vapor Pressure at the air temperature (kPa):
     esat_inst = 0.6108 * np.exp(17.27 * Temp_inst / (Temp_inst + 237.3))
     esat_24 = 0.6108 * np.exp(17.27 * Temp_24 / (Temp_24 + 237.3))
@@ -806,6 +799,12 @@ def main(number, inputExcel):
     print('------- Meteo and Radiation Continue (Part 9) -----------')
     print('---------------------------------------------------------')
 
+    # Atmospheric pressure for altitude:
+    Pair = 101.3 * np.power((293 - Temp_lapse_rate * DEM_resh) / 293, 5.26)
+
+    # Psychrometric constant (kPa / °C), FAO 56, eq 8.:
+    Psychro_c = 0.665E-3 * Pair
+
     # Slope of satur vapour pressure curve at air temp (kPa / °C)
     sl_es_24 = 4098 * esat_24 / np.power(Temp_24 + 237.3, 2)
 
@@ -864,12 +863,19 @@ def main(number, inputExcel):
     save_GeoTiff_proy(lsc, Pair, Atmos_pressure_fileName, shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, Psychro_c, Psychro_c_fileName, shape_lsc, nband=1)
 
+    # Correct Temperature based on air column above the ground
+    Temp_corr, air_dens = Correct_Surface_Temp_slope(temp_surface_sharpened, Pair, dr, Transm_corr, cos_zn, Sun_elevation, deg2rad, QC_Map)
+
+    # Correct Temperature to one DEM height
+    ts_dem = Correct_Surface_Temp_Lapse_Rate(Temp_corr, DEM_resh, NDVI, slope, water_mask, QC_Map)
+
+    # Save files
+    save_GeoTiff_proy(lsc, Temp_corr, temp_corr_fileName, shape_lsc, nband=1)
+    save_GeoTiff_proy(lsc, ts_dem, ts_dem_fileName, shape_lsc, nband=1)
+
     print('---------------------------------------------------------')
     print('---------------- Hot/Cold Pixels (Part 10) --------------')
     print('---------------------------------------------------------')
-
-    # Temperature at sea level corrected for elevation: ??
-    ts_dem,air_dens,Temp_corr=Correct_Surface_Temp(temp_surface_sharpened,Temp_lapse_rate,DEM_resh,Pair,dr,Transm_corr,cos_zn,Sun_elevation,deg2rad,QC_Map)
 
     # Selection of hot and cold pixels
 
@@ -908,10 +914,6 @@ def main(number, inputExcel):
         ts_dem_hot,hot_pixels = Calc_Hot_Pixels(ts_dem,QC_Map, water_mask,NDVI,NDVIhot_low,NDVIhot_high, Hot_Pixel_Constant, ts_dem_cold)
         save_GeoTiff_proy(lsc, hot_pixels, hot_pixels_fileName, shape_lsc, nband=1)
 
-    # Save files
-    save_GeoTiff_proy(lsc, Temp_corr, temp_corr_fileName, shape_lsc, nband=1)
-    save_GeoTiff_proy(lsc, ts_dem, ts_dem_fileName, shape_lsc, nband=1)
-
     print('---------------------------------------------------------')
     print('------------ Sensible heat flux (Part 11) ---------------')
     print('---------------------------------------------------------')
@@ -941,6 +943,10 @@ def main(number, inputExcel):
 
     # Save files
     save_GeoTiff_proy(lsc, h_inst, h_inst_fileName, shape_lsc, nband=1)
+    
+    # Temporary Save
+    dT_fileName = os.path.join(output_folder, 'Output_energy_balance', '%s_%s_dT_%s_%s_%s.tif' %(sensor1, sensor2, res2, year, DOY))
+    save_GeoTiff_proy(lsc, dT, dT_fileName, shape_lsc, nband=1)
 
     print('---------------------------------------------------------')
     print('-------------- Evaporation (Part 12) --------------------')
@@ -967,6 +973,9 @@ def main(number, inputExcel):
 
     # Daily Evaporation and advection factor
     ETA_24, AF=Calc_ETact(esat_24,eact_24,EF_inst,Rn_24,Refl_rad_water,Lhv, Image_Type)
+
+    # Correct ETA_24 based on slope (basal crop coefficient)
+    ETA_24 = Corr_ETact(ETA_24, ETpot_24, NDVI, slope)
 
     # Bulk surface resistance (s/m):
     bulk_surf_resis_24=Calc_Bulk_surface_resistance(sl_es_24,Rn_24,Refl_rad_water,air_dens,esat_24,eact_24,rah_pm_act,ETA_24,Lhv,Psychro_c)
@@ -1301,6 +1310,20 @@ def Calc_ETact(esat_24, eact_24, EF_inst, Rn_24, Refl_rad_water, Lhv, Image_Type
     return(ETA_24, AF)
 
 #------------------------------------------------------------------------------
+def Corr_ETact(ETA_24, ETpot_24, NDVI, slope):
+
+    # Slope treshold
+    slope_tresh = 10.
+    
+    # calc basal crop coefficient
+    Kcb = 1.338 * NDVI - 0.027
+    
+    # Correct ETa
+    ETA_24[slope>slope_tresh] = np.minimum(1.1 * Kcb[slope>slope_tresh] * ETA_24[slope>slope_tresh], ETA_24[slope>slope_tresh])
+    
+    return(ETA_24)
+    
+#------------------------------------------------------------------------------
 def Calc_instantaneous_ET_fraction(LE_inst,rn_inst,g_inst):
     """
     Function to calculate the evaporative fraction
@@ -1474,6 +1497,94 @@ def Correct_Surface_Temp(Surface_temp,Temp_lapse_rate,DEM_resh,Pair,dr,Transm_co
     ts_dem[ts_dem>350]=np.nan
 
     return(ts_dem,air_dens,Temp_corr)
+#------------------------------------------------------------------------------
+
+def Correct_Surface_Temp_slope(Surface_temp,Pair, dr, Transm_corr, cos_zn, Sun_elevation, deg2rad, ClipLandsat):
+    """
+    Function to correct the surface temperature based on the DEM map
+    """
+    #constants:
+    Gsc = 1367        # Solar constant (W / m2)
+
+    cos_zenith_flat = np.cos((90 - Sun_elevation) * deg2rad)
+    air_dens = 1000 * Pair / (1.01 * Surface_temp * 287)
+
+    #
+    ts_corr = (Surface_temp + (Gsc * dr * Transm_corr * cos_zn -
+              Gsc * dr * Transm_corr * cos_zenith_flat) / (air_dens * 1004 * 0.050)) #0.05 dikte van de lucht laag boven grond
+    #(Temp_corr - (Gsc * dr * Transm_corr * cos_zn -
+    #          Gsc * dr * Transm_corr * cos_zenith_flat) / (air_dens * 1004 * 0.050))
+    ts_corr[ClipLandsat==1]=np.nan
+    ts_corr[ts_corr==0]=np.nan
+    ts_corr[ts_corr<273]=np.nan
+    ts_corr[ts_corr>350]=np.nan
+
+    return(ts_corr, air_dens)
+    
+#------------------------------------------------------------------------------
+def Correct_Surface_Temp_Lapse_Rate(ts_corr, DEM_resh, NDVI, slope, water_mask, ClipLandsat):
+    """
+    Function to correct the surface temperature based on the DEM map
+    """
+
+    # Indicators to define the pixels selected for the lapse rate
+    NDVI_flatten = NDVI.flatten()
+    water_mask_flatten = water_mask.flatten()
+    DEM_flatten = DEM_resh.flatten()
+    slope_flatten = slope.flatten()
+    ts_corr_flatten = ts_corr.flatten()
+    
+    ts_corr_flatten = ts_corr_flatten[np.logical_and.reduce((slope_flatten<=1., DEM_flatten>=0, NDVI_flatten<=0.2, water_mask_flatten == 0.))]
+    DEM_array_flatten = DEM_flatten[np.logical_and.reduce((slope_flatten<=1., DEM_flatten>=0, NDVI_flatten<=0.2, water_mask_flatten == 0.))]
+    
+    DEM_array_flatten = DEM_array_flatten[~np.isnan(ts_corr_flatten)]
+    ts_corr_flatten = ts_corr_flatten[~np.isnan(ts_corr_flatten)]
+    
+    # Find the range of DEM
+    DEMmin = np.nanmin(DEM_array_flatten)
+    DEMmax = np.nanmax(DEM_array_flatten)
+
+    # Define steps for temperature
+    DEM_spaces = np.linspace(DEMmin, DEMmax, 50)
+    Temps = np.zeros(len(DEM_spaces)-1)
+    Tot_array =np.vstack([DEM_array_flatten,ts_corr_flatten])
+
+    # Calculate Temperature for the different buckets and remove outliers
+    for i in range(1,len(DEM_spaces)):
+        
+        # Define the bucket range for this step
+        min_bucket = DEM_spaces[i-1]
+        max_bucket = DEM_spaces[i]    
+        
+        # Select all the temperatures for this bucket
+        Select_temp = Tot_array[:,np.logical_and(Tot_array[0,:]<max_bucket,Tot_array[0,:]>=min_bucket)]
+        Temp_values = Select_temp[1,:]
+        
+        # Remove outliers from bucket
+        Temp_std = np.nanstd(Select_temp[1,:])
+        Temp_avg = np.nanmean(Select_temp[1,:])    
+        Temp_good = Temp_values[np.logical_and(Temp_values<=(Temp_avg+Temp_std),Temp_values>=(Temp_avg-Temp_std))]
+
+        # Define temperature for that bucket
+        Temps[i-1] = np.nanmean(Temp_good)
+  
+    x_values = (DEM_spaces[1:] + DEM_spaces[:-1])/2
+    y_values = Temps
+
+    # Calculate lapse rate
+    Temp_lapse = y_values - y_values[0]
+    z = np.polyfit(x_values, Temp_lapse, 10)
+    f = np.poly1d(z) 
+    Temp_array_lapse_rate = f(DEM_resh)    
+    ts_dem = ts_corr - Temp_array_lapse_rate
+        
+    # Remove bad pixels
+    ts_dem[ClipLandsat==1]=np.nan
+    ts_dem[ts_dem==0]=np.nan
+    ts_dem[ts_dem<273]=np.nan
+    ts_dem[ts_dem>350]=np.nan
+
+    return(ts_dem)
 
 #------------------------------------------------------------------------------
 def Calc_Hot_Pixels(ts_dem,QC_Map, water_mask, NDVI,NDVIhot_low,NDVIhot_high,Hot_Pixel_Constant, ts_dem_cold):

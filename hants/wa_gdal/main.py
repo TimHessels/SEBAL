@@ -83,8 +83,10 @@ def create_netcdf(rasters_path, name_format, start_date, end_date,
                 nc_path_tiles = np.append(nc_path_tiles, nc_path_tile)
 
     else:
-        nc_path_tiles = nc_path
-
+        nc_path_tiles = [nc_path]
+        lat_n_amount = 1
+        lon_n_amount = 1
+        
     i = 0
     # Loop over the nc_paths
     for nc_path_tile in nc_path_tiles:
@@ -300,8 +302,7 @@ def HANTS_singlepoint(nc_path, point, nb, nf, HiLo, low, high, fet, dod,
 
     nc_file = netCDF4.Dataset(nc_path, 'r', format="NETCDF4_CLASSIC")
 
-    time = [pd.to_datetime(i, format='%Y%m%d')
-            for i in nc_file.variables['time'][:]]
+    time = [pd.datetime.fromordinal(i) for i in nc_file.variables['time'][:]]
 
     lat = nc_file.variables['latitude'][:]
     lon = nc_file.variables['longitude'][:]
@@ -345,9 +346,9 @@ def HANTS_singlepoint(nc_path, point, nb, nf, HiLo, low, high, fet, dod,
     [hants_values, outliers] = HANTS(ni, nb, nf, y, ts, HiLo, low, high, fet,
                                      dod, delta)
     # Plot
-    top = 1.15*max(pd.np.nanmax(original_values),
+    top = 1.15*max(pd.np.nanmax(original_values[original_values!=-9999]),
                    pd.np.nanmax(hants_values))
-    bottom = 1.15*min(pd.np.nanmin(original_values),
+    bottom = 1.15*min(pd.np.nanmin(original_values[original_values!=-9999]),
                       pd.np.nanmin(hants_values))
     ylim = [bottom, top]
 
@@ -361,7 +362,6 @@ def HANTS_singlepoint(nc_path, point, nb, nf, HiLo, low, high, fet, dod,
     plt.gcf().autofmt_xdate()
     plt.axes().set_title('Point: lon {0:.2f}, lat {1:.2f}'.format(lon_closest,
                                                                   lat_closest))
-    plt.axes().set_aspect(0.5*(time[-1] - time[0]).days/(ylim[1] - ylim[0]))
 
     plt.show()
 
@@ -644,47 +644,50 @@ def Merge_NC_Tiles(nc_paths, nc_path, start_date, end_date, latlim, lonlim, cell
     lon_var[:] = lon_ls
     time_var[:] = dates_ls
 
-    parameter = 'outliers'
-    Array = Get_Array(nc_path, nc_paths, parameter)
-    Array[np.isnan(Array)] = -9999
-    outliers_var[:,:,:] = np.int_(Array)
-    del Array
+    for tt in range(len(dates_ls)):
 
-    parameter = 'original_values'
-    Array = Get_Array(nc_path, nc_paths, parameter)
-    Array[np.isnan(Array)] = -9999 * np.float(Scaling_factor)
-    Array[Array < -9999] = -9999 * np.float(Scaling_factor)
-    Array = np.int_(Array * 1./np.float(Scaling_factor))
-    original_var[:,:,:] = Array
-    del Array
-
-    parameter = 'hants_values'
-    Array = Get_Array(nc_path, nc_paths, parameter)
-    Array[np.isnan(Array)] = -9999 * np.float(Scaling_factor)
-    Array[Array < -9999] = -9999 * np.float(Scaling_factor)
-    Array = np.int_(Array * 1./np.float(Scaling_factor))
-    hants_var[:,:,:] = Array
-    del Array
-
-    parameter = 'combined_values'
-    Array = Get_Array(nc_path, nc_paths, parameter)
-    Array[np.isnan(Array)] = -9999 * np.float(Scaling_factor)
-    Array[Array < -9999] = -9999 * np.float(Scaling_factor)
-    Array = np.int_(Array * 1./np.float(Scaling_factor))
-    combined_var[:,:,:] = Array
-    del Array
-
+        parameter = 'outliers'
+        Array = Get_Array(nc_path, nc_paths, parameter, tt)
+        Array[np.isnan(Array)] = -9999
+        outliers_var[tt,:,:] = np.int_(Array)
+        del Array
+    
+        parameter = 'original_values'
+        Array = Get_Array(nc_path, nc_paths, parameter, tt)
+        Array[np.isnan(Array)] = -9999 * np.float(Scaling_factor)
+        Array[Array < -9999] = -9999 * np.float(Scaling_factor)
+        Array = np.int_(Array * 1./np.float(Scaling_factor))
+        original_var[tt,:,:] = Array
+        del Array
+    
+        parameter = 'hants_values'
+        
+        Array = Get_Array(nc_path, nc_paths, parameter, tt)
+        Array[np.isnan(Array)] = -9999 * np.float(Scaling_factor)
+        Array[Array < -9999] = -9999 * np.float(Scaling_factor)
+        Array = np.int_(Array * 1./np.float(Scaling_factor))
+        hants_var[tt,:,:] = Array
+        del Array
+    
+        parameter = 'combined_values'
+        Array = Get_Array(nc_path, nc_paths, parameter, tt)
+        Array[np.isnan(Array)] = -9999 * np.float(Scaling_factor)
+        Array[Array < -9999] = -9999 * np.float(Scaling_factor)
+        Array = np.int_(Array * 1./np.float(Scaling_factor))
+        combined_var[tt,:,:] = Array
+        del Array
+    
     nc_file.close()
+    
     return()
 
-def Get_Array(nc_path, nc_paths, parameter):
+def Get_Array(nc_path, nc_paths, parameter, tt):
 
     nc_file = netCDF4.Dataset(nc_path, 'r', format="NETCDF4_CLASSIC")
     latx = nc_file.variables['latitude'][:]
     lonx = nc_file.variables['longitude'][:]
-    timeo = nc_file.variables['time'][:]
 
-    Array = np.ones([len(timeo), len(latx), len(lonx)]) * np.nan
+    Array = np.ones([len(latx), len(lonx)]) * np.nan
 
     for file_nc in nc_paths:
         nc_file_part = netCDF4.Dataset(file_nc)
@@ -693,8 +696,9 @@ def Get_Array(nc_path, nc_paths, parameter):
         lonx_part = nc_file_part.variables['longitude'][:]
         start_y = np.argwhere(latx == latx_part[0])[0][0]
         start_x = np.argwhere(lonx == lonx_part[0])[0][0]
-        Array_part = nc_file_part.variables[parameter][:,:,:]
-        Array[:, start_y: start_y + Array_part.shape[1],start_x: start_x + Array_part.shape[2]] = Array_part
+        Array_part = nc_file_part.variables[parameter][tt,:,:]
+    
+        Array[start_y: start_y + Array_part.shape[0],start_x: start_x + Array_part.shape[1]] = Array_part
 
     return(Array)
 

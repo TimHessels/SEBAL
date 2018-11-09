@@ -28,18 +28,18 @@ def Get_Time_Info(workbook, number):
     # UTM Zone of the end results
     UTM_Zone = float(ws['G%d' %number].value)
 
-	 # Get time from the VIIRS dataset name (IMPORTANT TO KEEP THE TEMPLATE OF THE VIIRS NAME CORRECT example: VIIRS_SVIO5_npp_d20160601_t1103128_e1108532_b23808_c20160601170854581426_noaa_ops.tif npp_viirs_i05_20150701_124752_wgs84_fit.tif)
+	 # Get time from the VIIRS dataset name (IMPORTANT TO KEEP THE TEMPLATE OF THE VIIRS NAME CORRECT example: VIIRS_SVIO5_npp_20160601_1103128_e1108532_b23808_c20160601170854581426_noaa_ops.tif npp_viirs_i05_20150701_124752_wgs84_fit.tif)
     Total_Day_VIIRS = Name_VIIRS_Image_TB.split('_')[3]
     Total_Time_VIIRS = Name_VIIRS_Image_TB.split('_')[4]
 
     # Get the information out of the VIIRS name
-    year = int(Total_Day_VIIRS[1:5])
-    month = int(Total_Day_VIIRS[5:7])
-    day = int(Total_Day_VIIRS[7:9])
+    year = int(Total_Day_VIIRS[:4])
+    month = int(Total_Day_VIIRS[4:6])
+    day = int(Total_Day_VIIRS[6:8])
     Startdate = '%d-%02d-%02d' % (year,month,day)
     DOY = datetime.datetime.strptime(Startdate,'%Y-%m-%d').timetuple().tm_yday
-    hour = int(Total_Time_VIIRS[1:3])
-    minutes = int(Total_Time_VIIRS[3:5])
+    hour = int(Total_Time_VIIRS[0:2])
+    minutes = int(Total_Time_VIIRS[2:4])
 
     # Print data used from sheet General_Input
     print('VIIRS PROBA-V Input:')
@@ -61,7 +61,15 @@ def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radi
     output_folder = r"%s" %str(ws['C%d' %number].value)
 
     ws = workbook['Additional_Input']
-
+    
+    # Define the bands that will be used
+    bands=['SM', 'B1', 'B2', 'B3', 'B4']  #'SM', 'BLUE', 'RED', 'NIR', 'SWIR'
+    sensor1 = 'PROBAV'
+    sensor2 = 'VIIRS'
+    res1 = '375m'
+    res2 = '100m'
+    res3 = '30m'    
+    
     # If all additional fields are filled in than do not open the datasets
     if ws['B%d' % number].value is None or ws['C%d' % number].value is None:
 
@@ -71,14 +79,6 @@ def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radi
         ws = workbook['VIIRS_PROBAV_Input']
 
         Name_PROBAV_Image = '%s' %str(ws['D%d' %number].value)    # Must be a tiff file
-
-         # Define the bands that will be used
-        bands=['SM', 'B1', 'B2', 'B3', 'B4']  #'SM', 'BLUE', 'RED', 'NIR', 'SWIR'
-        sensor1 = 'PROBAV'
-        sensor2 = 'VIIRS'
-        res1 = '375m'
-        res2 = '100m'
-        res3 = '30m'
 
         # Set the index number at 0
         index=0
@@ -226,11 +226,10 @@ def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radi
             # Output folder NDVI
             ndvi_fileName_user = os.path.join(output_folder, 'Output_vegetation', 'User_NDVI_%s_%s_%s.tif' %(res3, year, DOY))
             NDVI = SEBAL.Reshape_Reproject_Input_data(r'%s' %str(ws['B%d' % number].value),ndvi_fileName_user,Example_fileName)
-
-            water_mask_temp = np.zeros((shape_lsc[1], shape_lsc[0]))
-            water_mask_temp[NDVI < 0.0] = 1.0
+            water_mask_temp = np.zeros((shape_lsc[1], shape_lsc[0]))            
+            water_mask_temp[NDVI < 0.0] = 1.0               
             SEBAL.save_GeoTiff_proy(lsc, NDVI, ndvi_fileName_user, shape_lsc, nband=1)
-
+            
         else:
             n218_memory = spectral_reflectance_PROBAV[:, :, 2] + spectral_reflectance_PROBAV[:, :, 3]
             NDVI = np.zeros((shape_lsc[1], shape_lsc[0]))

@@ -19,7 +19,6 @@ import numpy.polynomial.polynomial as poly
 from openpyxl import load_workbook
 from pyproj import Proj, transform
 import warnings
-import pandas as pd
 
 def main(number, inputExcel):
 
@@ -238,11 +237,6 @@ def main(number, inputExcel):
 
     # Calibartion constants Cold Pixels from the excel file
     Cold_Pixel_Constant = float(ws['F%d' %number].value)         # Cold Pixel Value = Mean_Cold_Pixel + Cold_Pixel_Constant * Std_Cold_Pixel (only for VIIRS images)
-
-    # Get Datetime
-    TIME = pd.to_datetime("%d%d" %(year, DOY), format = '%Y%j')
-    month = TIME.month
-    day = TIME.day
 
     # ------------------------------------------------------------------------
     # Define the output maps names
@@ -589,13 +583,13 @@ def main(number, inputExcel):
     print('---------------------------------------------------------')
 
     if Image_Type == 1:
-        Surf_albedo, NDVI, LAI, vegt_cover, FPAR, Nitrogen, tir_emis, b10_emissivity, water_mask_temp, QC_Map = input_LS.Get_LS_Para_Veg(wb, number, proyDEM_fileName, year, month, day, path_radiance, Apparent_atmosf_transm, cos_zn, dr)
+        Surf_albedo, NDVI, LAI, vegt_cover, FPAR, Nitrogen, tir_emis, b10_emissivity, water_mask_temp, QC_Map = input_LS.Get_LS_Para_Veg(wb, number, proyDEM_fileName, year, DOY, path_radiance, Apparent_atmosf_transm, cos_zn, dr)
 
     if Image_Type == 2:
-        Surf_albedo, NDVI, LAI, vegt_cover, FPAR, Nitrogen, tir_emis, b10_emissivity, water_mask_temp, QC_Map = input_PROBAV_VIIRS.Get_PROBAV_Para_Veg(wb, number, proyDEM_fileName, year, month, day, path_radiance, Apparent_atmosf_transm, cos_zn, dr, DEM_resh)
+        Surf_albedo, NDVI, LAI, vegt_cover, FPAR, Nitrogen, tir_emis, b10_emissivity, water_mask_temp, QC_Map = input_PROBAV_VIIRS.Get_PROBAV_Para_Veg(wb, number, proyDEM_fileName, year, DOY, path_radiance, Apparent_atmosf_transm, cos_zn, dr, DEM_resh)
 
     if Image_Type == 3:
-        Surf_albedo, NDVI, LAI, vegt_cover, FPAR, Nitrogen, tir_emis, b10_emissivity, water_mask_temp, QC_Map = input_MODIS.Get_MODIS_Para_Veg(wb, number, proyDEM_fileName, year, month, day, path_radiance, Apparent_atmosf_transm, cos_zn, dr, DEM_resh, epsg_to)
+        Surf_albedo, NDVI, LAI, vegt_cover, FPAR, Nitrogen, tir_emis, b10_emissivity, water_mask_temp, QC_Map = input_MODIS.Get_MODIS_Para_Veg(wb, number, proyDEM_fileName, year, DOY, path_radiance, Apparent_atmosf_transm, cos_zn, dr, DEM_resh, epsg_to)
 
     # Save output maps
     save_GeoTiff_proy(lsc, water_mask_temp, water_mask_temp_fileName, shape_lsc, nband=1)
@@ -636,13 +630,13 @@ def main(number, inputExcel):
     print('---------------------------------------------------------')
 
     if Image_Type == 1:
-        Surface_temp, cloud_mask_temp, Thermal_Sharpening_not_needed = input_LS.Get_LS_Para_Thermal(wb, number, proyDEM_fileName, year, month, day,  water_mask_temp, b10_emissivity, Temp_inst, Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed, DEM_fileName, UTM_Zone, eact_inst, QC_Map)
+        Surface_temp, cloud_mask_temp, Thermal_Sharpening_not_needed = input_LS.Get_LS_Para_Thermal(wb, number, proyDEM_fileName, year, DOY,  water_mask_temp, b10_emissivity, Temp_inst, Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed, DEM_fileName, UTM_Zone, eact_inst, QC_Map)
 
     if Image_Type == 2:
-        Surface_temp, cloud_mask_temp , Thermal_Sharpening_not_needed = input_PROBAV_VIIRS.Get_VIIRS_Para_Thermal(wb, number, proyDEM_fileName, year, month, day, water_mask_temp, b10_emissivity, Temp_inst,  Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed)
+        Surface_temp, cloud_mask_temp , Thermal_Sharpening_not_needed = input_PROBAV_VIIRS.Get_VIIRS_Para_Thermal(wb, number, proyDEM_fileName, year, DOY, water_mask_temp, b10_emissivity, Temp_inst,  Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed)
 
     if Image_Type == 3:
-        Surface_temp, cloud_mask_temp, Thermal_Sharpening_not_needed = input_MODIS.Get_MODIS_Para_Thermal(wb, number, proyDEM_fileName, year, month, day, water_mask_temp, b10_emissivity, Temp_inst,  Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed, epsg_to)
+        Surface_temp, cloud_mask_temp, Thermal_Sharpening_not_needed = input_MODIS.Get_MODIS_Para_Thermal(wb, number, proyDEM_fileName, year, DOY, water_mask_temp, b10_emissivity, Temp_inst,  Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed, epsg_to)
 
     # Save output maps
     save_GeoTiff_proy(lsc, Surface_temp, surf_temp_fileName, shape_lsc, nband=1)
@@ -2428,64 +2422,6 @@ def Reshape_Reproject_Input_data(input_File_Name, output_File_Name, Example_exte
    save_GeoTiff_proy(data_rep, data, output_File_Name, shape_data, nband=1)
 
    return(data)
-   
-#------------------------------------------------------------------------------
-def Thermal_Sharpening_Linear(surface_temp_up, NDVI_up, NDVI, Box, dest_up, output_folder, ndvi_fileName, shape_down, dest_down, watermask = False):
-
-    # Creating arrays to store the coefficients
-    CoefA=np.zeros((len(surface_temp_up),len(surface_temp_up[1])))
-    CoefB=np.zeros((len(surface_temp_up),len(surface_temp_up[1])))
-
-    # Fit a second polynominal fit to the NDVI and Thermal data and save the coefficients for each pixel
-    # NOW USING FOR LOOPS PROBABLY NOT THE FASTEST METHOD
-    for i in range(0,len(surface_temp_up)):
-        for j in range(0,len(surface_temp_up[1])):
-            if np.isnan(np.sum(surface_temp_up[i,j]))==False and np.isnan(np.sum(NDVI_up[i,j]))==False:
-                x_data = NDVI_up[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)), int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]), j + (Box - 1) / 2 + 1))][np.logical_and(np.logical_not(np.isnan(NDVI_up[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)),int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]), j + (Box - 1) / 2 + 1))])), np.logical_not(np.isnan(surface_temp_up[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)),int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]),j + (Box - 1) / 2 + 1))])))]
-                y_data = surface_temp_up[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)), int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]), j + (Box - 1) / 2 + 1))][np.logical_and(np.logical_not(np.isnan(NDVI_up[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)),int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]),j + (Box - 1) / 2 + 1))])), np.logical_not(np.isnan(surface_temp_up[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)),int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]), j + (Box - 1) / 2 + 1))])))]
-                if not watermask is False:
-                    wm_data = watermask[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)), int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]), j + (Box - 1) / 2 + 1))][np.logical_and(np.logical_not(np.isnan(NDVI_up[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)),int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]),j + (Box - 1) / 2 + 1))])), np.logical_not(np.isnan(surface_temp_up[int(np.maximum(0, i - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up), i + (Box - 1) / 2 + 1)),int(np.maximum(0, j - (Box - 1) / 2)):int(np.minimum(len(surface_temp_up[1]), j + (Box - 1) / 2 + 1))])))]
-                    x_data = x_data[wm_data==0]
-                    y_data = y_data[wm_data==0]
-                x_data[~np.isnan(x_data)]
-                y_data[~np.isnan(y_data)]
-                if len(x_data)>6:
-                    coefs = poly.polyfit(x_data, y_data, 1)
-                    CoefA[i,j] = coefs[1]
-                    CoefB[i,j] = coefs[0]
- 
-                else:
-                    CoefA[i,j] = np.nan
-                    CoefB[i,j] = np.nan
-            else:
-                CoefA[i,j] = np.nan
-                CoefB[i,j] = np.nan
-
-    # Define the shape of the surface temperature with the resolution of 400m
-    shape_up=[len(surface_temp_up[1]),len(surface_temp_up)]
-
-    # Save the coefficients
-    CoefA_fileName_Optie2 = os.path.join(output_folder, 'Output_temporary','coef_A.tif')
-    save_GeoTiff_proy(dest_up,CoefA, CoefA_fileName_Optie2,shape_up, nband=1)
-
-    CoefB_fileName_Optie2 = os.path.join(output_folder, 'Output_temporary','coef_B.tif')
-    save_GeoTiff_proy(dest_up,CoefB, CoefB_fileName_Optie2,shape_up, nband=1)
-
-    # Downscale the fitted coefficients
-    CoefA_Downscale, ulx_dem, lry_dem, lrx_dem, uly_dem, epsg_to = reproject_dataset_example(
-                                  CoefA_fileName_Optie2, ndvi_fileName)
-    CoefA = CoefA_Downscale.GetRasterBand(1).ReadAsArray()
-
-    CoefB_Downscale, ulx_dem, lry_dem, lrx_dem, uly_dem, epsg_to = reproject_dataset_example(
-                                  CoefB_fileName_Optie2, ndvi_fileName)
-    CoefB = CoefB_Downscale.GetRasterBand(1).ReadAsArray()
-
-    # Calculate the surface temperature based on the fitted coefficents and NDVI
-    temp_surface_sharpened=CoefA*NDVI+CoefB
-    temp_surface_sharpened[temp_surface_sharpened < 250] = np.nan
-    temp_surface_sharpened[temp_surface_sharpened > 400] = np.nan
-
-    return(temp_surface_sharpened)
 
 #------------------------------------------------------------------------------
 def Thermal_Sharpening(surface_temp_up, NDVI_up, NDVI, Box, dest_up, output_folder, ndvi_fileName, shape_down, dest_down, watermask = False):

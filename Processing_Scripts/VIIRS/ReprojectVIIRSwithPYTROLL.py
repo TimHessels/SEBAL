@@ -18,8 +18,8 @@ from mpop.satellites import PolarFactory
 from datetime import datetime
 import glob
 
-input_folder = r"E:\Project_2\Tunisia\DATA_RAW\VIIRS"
-output_folder = r"E:\Project_2\Tunisia\DATA_RAW\VIIRS_mpop_out_375"
+input_folder = r"K:\Project_OpenET\PV_VIIRS_Test_Run\Input\VIIRS_RAW"
+output_folder = r"K:\Project_OpenET\PV_VIIRS_Test_Run\Input\VIIRS_UTM"
 os.chdir(input_folder)
 re = glob.glob("GITCO_*.h5")
 
@@ -91,11 +91,11 @@ for filename in re[:]:
             '''
 
             from mpop.projector import get_area_def
-            area_def = get_area_def("TUN375")
+            area_def = get_area_def("Nebraska")
             global_data.load(['I05'], time_interval=(start, end))
 
             # 1: 0.64 2: 0.87 3:1.61 4:3.74 5: 11.5
-            #global_data.image.channel_image(11.5) # .show()
+            #global_data.image.channel_image(11.5).show()
             local_data = global_data.project(area_def, mode='nearest')
 
             # pick an area_def I have actually created one based on the extent of

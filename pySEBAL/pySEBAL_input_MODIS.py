@@ -47,7 +47,7 @@ def Get_Time_Info(workbook, number):
 
     return(year, DOY, UTM_Zone)
 
-def Get_MODIS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radiance, Apparent_atmosf_transm, cos_zn, dr, DEM_resh, epsg_to):
+def Get_MODIS_Para_Veg(workbook, number, Example_fileName, year, month, day, path_radiance, Apparent_atmosf_transm, cos_zn, dr, DEM_resh, epsg_to):
 
     import SEBAL.pySEBAL.pySEBAL_code as SEBAL
 
@@ -83,7 +83,7 @@ def Get_MODIS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radia
         if (ws['B%d' % number].value) is not None:
 
             # Output folder NDVI	defined by the user
-            ndvi_fileName = os.path.join(output_folder, 'Output_vegetation', 'User_NDVI_%s_%s_%s.tif' %(res2, year, DOY))
+            ndvi_fileName = os.path.join(output_folder, 'Output_vegetation', 'User_NDVI_%s_%s%02d%02d.tif' %(res2, year, month, day))
 
             # Reproject and reshape users NDVI
             NDVI = SEBAL.Reshape_Reproject_Input_data(r'%s' %str(ws['B%d' % number].value),ndvi_fileName, Example_fileName)
@@ -123,7 +123,7 @@ def Get_MODIS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radia
     try:
         if (ws['E%d' % number].value) is not None:
             # Overwrite the Water mask
-             water_mask_temp_fileName = os.path.join(output_folder, 'Output_soil_moisture', 'User_Water_mask_temporary_%s_%s_%s.tif' %(res2, year, DOY))
+             water_mask_temp_fileName = os.path.join(output_folder, 'Output_soil_moisture', 'User_Water_mask_temporary_%s_%s%02d%02d.tif' %(res2, year, month, day))
              water_mask_temp = SEBAL.Reshape_Reproject_Input_data(r'%s' %str(ws['E%d' % number].value), water_mask_temp_fileName, Example_fileName)
              SEBAL.save_GeoTiff_proy(lsc, water_mask_temp, water_mask_temp_fileName, shape_lsc, nband=1)
     except:
@@ -134,7 +134,7 @@ def Get_MODIS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radia
     try:
         if (ws['C%d' % number].value) is not None:
             # Output folder surface albedo
-            surface_albedo_fileName = os.path.join(output_folder, 'Output_vegetation','User_surface_albedo_%s_%s_%s.tif' %(res2, year, DOY))
+            surface_albedo_fileName = os.path.join(output_folder, 'Output_vegetation','User_surface_albedo_%s_%s%02d%02d.tif' %(res2, year, month, day))
 
             # Reproject and reshape users surface albedo
             Surf_albedo=SEBAL.Reshape_Reproject_Input_data(r'%s' %str(ws['C%d' % number].value), surface_albedo_fileName, Example_fileName)
@@ -172,7 +172,7 @@ def Get_MODIS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radia
     return(Surf_albedo, NDVI, LAI, vegt_cover, FPAR, Nitrogen, tir_emis, b10_emissivity, water_mask_temp, QC_Map)
 
 
-def Get_MODIS_Para_Thermal(workbook, number, Example_fileName, year, DOY, water_mask_temp, b10_emissivity, Temp_inst,  Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed, epsg_to):
+def Get_MODIS_Para_Thermal(workbook, number, Example_fileName, year, month, day, water_mask_temp, b10_emissivity, Temp_inst,  Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed, epsg_to):
 
     import SEBAL.pySEBAL.pySEBAL_code as SEBAL
 
@@ -211,7 +211,7 @@ def Get_MODIS_Para_Thermal(workbook, number, Example_fileName, year, DOY, water_
         else:
 
             # Output folder surface temperature
-            surf_temp_fileName = os.path.join(output_folder, 'Output_vegetation','User_surface_temp_%s_%s_%s.tif' %(res2, year, DOY))
+            surf_temp_fileName = os.path.join(output_folder, 'Output_vegetation','User_surface_temp_%s_%s%02d%02d.tif' %(res2, year, month, day))
             Surface_temp = SEBAL.Reshape_Reproject_Input_data(r'%s' %str(ws['D%d' % number].value), surf_temp_fileName, Example_fileName)
             Thermal_Sharpening_not_needed = 0
 

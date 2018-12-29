@@ -264,7 +264,7 @@ def HANTS_netcdf(nc_path, args):
     hants_var.add_offset = 0.00
     hants_var.scale_factor = Scaling_factor
     hants_var.set_auto_maskandscale(False)
-
+    '''
     combined_var = nc_file.createVariable('combined_values', 'i',
                                           ('time', 'latitude', 'longitude'),
                                           fill_value=-9999, zlib=True, least_significant_digit=0)
@@ -273,7 +273,7 @@ def HANTS_netcdf(nc_path, args):
     combined_var.add_offset = 0.00
     combined_var.scale_factor = Scaling_factor
     combined_var.set_auto_maskandscale(False)   
-    
+    '''    
     outliers_var = nc_file.createVariable('outliers', 'i4',
                                           ('time', 'latitude', 'longitude'),
                                           fill_value=-9999)
@@ -282,9 +282,11 @@ def HANTS_netcdf(nc_path, args):
     
     hants_var[:,:,:]= np.int_(values_hants * 1./np.float(Scaling_factor))
     outliers_var[:,:,:] = outliers_hants
+    '''
     combined_var[:,:,:] = pd.np.where(outliers_hants,
                                       np.int_(values_hants * 1./np.float(Scaling_factor)),
                                       np.int_(original_values * 1./np.float(Scaling_factor)))
+    '''
     # Close netcdf file
     nc_file.close()
 
@@ -609,7 +611,7 @@ def Merge_NC_Tiles(nc_paths, nc_path, start_date, end_date, latlim, lonlim, cell
                                           fill_value=-9999)
     outliers_var.long_name = 'outliers'
     outliers_var.grid_mapping = 'crs'
-
+    
     original_var = nc_file.createVariable('original_values', 'i',
                                           ('time', 'latitude', 'longitude'),
                                           fill_value=-9999, zlib=True, least_significant_digit=0)
@@ -618,7 +620,7 @@ def Merge_NC_Tiles(nc_paths, nc_path, start_date, end_date, latlim, lonlim, cell
     original_var.scale_factor = Scaling_factor
     original_var.add_offset = 0.00      
     original_var.set_auto_maskandscale(False)
-
+   
     hants_var = nc_file.createVariable('hants_values', 'i',
                                        ('time', 'latitude', 'longitude'),
                                        fill_value=-9999, zlib=True, least_significant_digit=0)
@@ -627,7 +629,7 @@ def Merge_NC_Tiles(nc_paths, nc_path, start_date, end_date, latlim, lonlim, cell
     hants_var.scale_factor = Scaling_factor
     hants_var.add_offset = 0.00    
     hants_var.set_auto_maskandscale(False)
-
+    '''
     combined_var = nc_file.createVariable('combined_values', 'i',
                                           ('time', 'latitude', 'longitude'),
                                           fill_value=-9999, zlib=True, least_significant_digit=0)
@@ -636,7 +638,7 @@ def Merge_NC_Tiles(nc_paths, nc_path, start_date, end_date, latlim, lonlim, cell
     combined_var.scale_factor = Scaling_factor
     combined_var.add_offset = 0.00    
     combined_var.set_auto_maskandscale(False)
-
+    '''
     print('\tFill in End Variables')
 
     # Fill in time and space dimention
@@ -651,7 +653,7 @@ def Merge_NC_Tiles(nc_paths, nc_path, start_date, end_date, latlim, lonlim, cell
         Array[np.isnan(Array)] = -9999
         outliers_var[tt,:,:] = np.int_(Array)
         del Array
-    
+         
         parameter = 'original_values'
         Array = Get_Array(nc_path, nc_paths, parameter, tt)
         Array[np.isnan(Array)] = -9999 * np.float(Scaling_factor)
@@ -659,7 +661,7 @@ def Merge_NC_Tiles(nc_paths, nc_path, start_date, end_date, latlim, lonlim, cell
         Array = np.int_(Array * 1./np.float(Scaling_factor))
         original_var[tt,:,:] = Array
         del Array
-    
+         
         parameter = 'hants_values'
         
         Array = Get_Array(nc_path, nc_paths, parameter, tt)
@@ -668,7 +670,7 @@ def Merge_NC_Tiles(nc_paths, nc_path, start_date, end_date, latlim, lonlim, cell
         Array = np.int_(Array * 1./np.float(Scaling_factor))
         hants_var[tt,:,:] = Array
         del Array
-    
+        '''
         parameter = 'combined_values'
         Array = Get_Array(nc_path, nc_paths, parameter, tt)
         Array[np.isnan(Array)] = -9999 * np.float(Scaling_factor)
@@ -676,7 +678,7 @@ def Merge_NC_Tiles(nc_paths, nc_path, start_date, end_date, latlim, lonlim, cell
         Array = np.int_(Array * 1./np.float(Scaling_factor))
         combined_var[tt,:,:] = Array
         del Array
-    
+        '''
     nc_file.close()
     
     return()

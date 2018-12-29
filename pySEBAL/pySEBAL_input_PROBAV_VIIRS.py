@@ -49,7 +49,7 @@ def Get_Time_Info(workbook, number):
 
     return(year, DOY, hour, minutes, UTM_Zone)
 
-def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radiance, Apparent_atmosf_transm, cos_zn, dr, DEM_resh):
+def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, month, day, path_radiance, Apparent_atmosf_transm, cos_zn, dr, DEM_resh):
 
     import SEBAL.pySEBAL.pySEBAL_code as SEBAL
 
@@ -63,7 +63,6 @@ def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radi
     ws = workbook['Additional_Input']
     
     # Define the bands that will be used
-    bands=['SM', 'B1', 'B2', 'B3', 'B4']  #'SM', 'BLUE', 'RED', 'NIR', 'SWIR'
     sensor1 = 'PROBAV'
     sensor2 = 'VIIRS'
     res1 = '375m'
@@ -78,134 +77,18 @@ def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radi
         # Open the Landsat_Input sheet
         ws = workbook['VIIRS_PROBAV_Input']
 
-        Name_PROBAV_Image = '%s' %str(ws['D%d' %number].value)    # Must be a tiff file
+        # read PROBAV name input
+        Name_PROBAV_Image = '%s' %str(ws['D%d' %number].value)    # Must be a tiff or hdf file
 
-        # Set the index number at 0
-        index=0
+##############################################################################################################################################
+############################################# maak hier een functie van zodat deze ook in preSEBAL_1.py gebruikt kan worden ##################
+##############################################################################################################################################
+       
+        spectral_reflectance_PROBAV, cloud_mask_temp = Open_PROBAV_Reflectance(Name_PROBAV_Image, input_folder, output_folder, Example_fileName)
 
-        # constants
-        n188_float = 248       # Now it is 248, but we do not exactly know what this really means and if this is for constant for all images.
-
-        # write the data one by one to the spectral_reflectance_PROBAV
-        for bandnmr in bands:
-
-            # Translate the PROBA-V names to the Landsat band names
-            Band_number = {'SM':7,'B1':8,'B2':10,'B3':9,'B4':11}
-
-            # Open the hdf file
-            Band_PROBAVhdf_fileName = os.path.join(input_folder, '%s.HDF5' % (Name_PROBAV_Image))
-            g = gdal.Open(Band_PROBAVhdf_fileName, gdal.GA_ReadOnly)
-
-            #  Define temporary file out and band name in
-            name_out = os.path.join(input_folder, '%s_test.tif' % (Name_PROBAV_Image))
-            name_in = g.GetSubDatasets()[Band_number[bandnmr]][0]
-
-            # Get environmental variable
-            SEBAL_env_paths = os.environ["SEBAL"].split(';')
-            GDAL_env_path = SEBAL_env_paths[0]
-            GDAL_TRANSLATE = os.path.join(GDAL_env_path, 'gdal_translate.exe')
-
-            # run gdal translate command
-            FullCmd = '%s -of GTiff %s %s' %(GDAL_TRANSLATE, name_in, name_out)
-            SEBAL.Run_command_window(FullCmd)
-
-            # Get the data array
-            dest_PV = gdal.Open(name_out)
-            Data = dest_PV.GetRasterBand(1).ReadAsArray()
-            dest_PV = None
-
-            # Remove temporary file
-            os.remove(name_out)
-
-            # Define the x and y spacing
-            Meta_data = g.GetMetadata()
-            Lat_Top = float(Meta_data['LEVEL3_GEOMETRY_TOP_RIGHT_LATITUDE'])
-            Lon_Left = float(Meta_data['LEVEL3_GEOMETRY_BOTTOM_LEFT_LONGITUDE'])
-            Pixel_size = float((Meta_data['LEVEL3_GEOMETRY_VNIR_VAA_MAPPING']).split(' ')[-3])
-
-            # Define the georeference of the PROBA-V data
-            geo_PROBAV=[Lon_Left-0.5*Pixel_size, Pixel_size, 0, Lat_Top+0.5*Pixel_size, 0, -Pixel_size] #0.000992063492063
-
-            ################################# Create a MEMORY file ##############################
-            # create memory output with the PROBA-V band
-            fmt = 'MEM'
-            driver = gdal.GetDriverByName(fmt)
-            dst_dataset = driver.Create('', int(Data.shape[1]), int(Data.shape[0]), 1,gdal.GDT_Float32)
-            dst_dataset.SetGeoTransform(geo_PROBAV)
-
-            # set the reference info
-            srs = osr.SpatialReference()
-            srs.SetWellKnownGeogCS("WGS84")
-            dst_dataset.SetProjection(srs.ExportToWkt())
-
-            # write the array in the geotiff band
-            dst_dataset.GetRasterBand(1).WriteArray(Data)
-
-            ################################# reproject PROBAV MEMORY file ##############################
-
-            # Reproject the PROBA-V band  to match DEM's resolution
-            PROBAV, ulx_dem, lry_dem, lrx_dem, uly_dem, epsg_to = SEBAL.reproject_dataset_example(
-                          dst_dataset, Example_fileName)
-
-            dst_dataset = None
-
-            #################################### Get example information ################################
-
-            if not "shape_lsc" in locals():
-                nrow = PROBAV.RasterYSize
-                ncol = PROBAV.RasterXSize
-                shape_lsc = [ncol, nrow]
-
-            # Open the reprojected PROBA-V band data
-            data_PROBAV_DN = PROBAV.GetRasterBand(1).ReadAsArray(0, 0, ncol, nrow)
-
-            # Define the filename to store the cropped Landsat image
-            dst_FileName = os.path.join(output_folder, 'Output_radiation_balance','proy_PROBAV_%s.tif' % bandnmr)
-
-            # close the PROBA-V
-            g=None
-
-            if not "spectral_reflectance_PROBAV" in locals():
-                spectral_reflectance_PROBAV=np.zeros([shape_lsc[1], shape_lsc[0], 5])
-
-            # If the band data is not SM change the DN values into PROBA-V values and write into the spectral_reflectance_PROBAV
-            if bandnmr is not 'SM':
-                data_PROBAV=data_PROBAV_DN/2000
-                spectral_reflectance_PROBAV[:, :, index]=data_PROBAV[:, :]
-
-            # If the band data is the SM band than write the data into the spectral_reflectance_PROBAV and create cloud mask
-            else:
-                cloud_mask_temp = np.zeros(data_PROBAV_DN.shape)
-                cloud_mask_temp[data_PROBAV_DN[:,:]!=n188_float]=1
-                spectral_reflectance_PROBAV[:, :, index] = cloud_mask_temp
-
-            # Change the spectral reflectance to meet certain limits
-            spectral_reflectance_PROBAV[:, :, index]=np.where(spectral_reflectance_PROBAV[:, :, index]<=0,np.nan,spectral_reflectance_PROBAV[:, :, index])
-            spectral_reflectance_PROBAV[:, :, index]=np.where(spectral_reflectance_PROBAV[:, :, index]>=150,np.nan,spectral_reflectance_PROBAV[:, :, index])
-
-            # Save the PROBA-V as a tif file
-            SEBAL.save_GeoTiff_proy(PROBAV, spectral_reflectance_PROBAV[:, :, index], dst_FileName, shape_lsc, nband=1)
-
-            # Go to the next index
-            index=index+1
-
-        # Original size PROBAV dataset
-        x_size_pv = int(Data.shape[1])
-        y_size_pv = int(Data.shape[0])
-        ulx = Lon_Left - 0.5*Pixel_size
-        uly = Lat_Top + 0.5*Pixel_size
-        lrx = ulx + x_size_pv * Pixel_size
-        lry = uly - y_size_pv * Pixel_size
-
-        print('Original PROBA-V Image - ')
-        print('  Size :', x_size_pv, y_size_pv)
-        print('  Upper Left corner x, y: ', ulx, ', ', uly)
-        print('  Lower right corner x, y: ', lrx, ', ', lry)
-
-        print('Reprojected PROBA-V Image - ')
-        print('  Size :', shape_lsc[1], shape_lsc[0])
-        print('  Upper Left corner x, y: ', ulx_dem, ', ', uly_dem)
-        print('  Lower right corner x, y: ', lrx_dem, ', ', lry_dem)
+##############################################################################################################################################
+############################    RETURN spectral_reflectance_PROBAV, cloud_mask_temp      #####################################################
+##############################################################################################################################################
 
     else:
         # Get General information example file
@@ -224,7 +107,7 @@ def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radi
         if (ws['B%d' % number].value) is not None:
 
             # Output folder NDVI
-            ndvi_fileName_user = os.path.join(output_folder, 'Output_vegetation', 'User_NDVI_%s_%s_%s.tif' %(res3, year, DOY))
+            ndvi_fileName_user = os.path.join(output_folder, 'Output_vegetation', 'User_NDVI_%s_%s%02d%02d.tif' %(res3, year, month, day))
             NDVI = SEBAL.Reshape_Reproject_Input_data(r'%s' %str(ws['B%d' % number].value),ndvi_fileName_user,Example_fileName)
             water_mask_temp = np.zeros((shape_lsc[1], shape_lsc[0]))            
             water_mask_temp[NDVI < 0.0] = 1.0               
@@ -247,7 +130,7 @@ def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radi
         if (ws['E%d' % number].value) is not None:
 
             # Overwrite the Water mask and change the output name
-            water_mask_temp_fileName = os.path.join(output_folder, 'Output_soil_moisture', 'User_Water_mask_temporary_%s_%s_%s.tif' %(res2, year, DOY))
+            water_mask_temp_fileName = os.path.join(output_folder, 'Output_soil_moisture', 'User_Water_mask_temporary_%s_%s%02d%02d.tif' %(res2, year, month, day))
             water_mask_temp = SEBAL.Reshape_Reproject_Input_data(r'%s' %str(ws['E%d' % number].value), water_mask_temp_fileName, Example_fileName)
             SEBAL.save_GeoTiff_proy(lsc, water_mask_temp, water_mask_temp_fileName, shape_lsc, nband=1)
 
@@ -259,7 +142,7 @@ def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radi
         if (ws['C%d' % number].value) is not None:
 
             # Output folder surface albedo
-            surface_albedo_fileName = os.path.join(output_folder, 'Output_vegetation','User_surface_albedo_%s_%s_%s.tif' %(res2, year, DOY))
+            surface_albedo_fileName = os.path.join(output_folder, 'Output_vegetation','User_surface_albedo_%s_%s%02d%02d.tif' %(res2, year, month, day))
             Surf_albedo=SEBAL.Reshape_Reproject_Input_data(r'%s' %str(ws['C%d' % number].value),surface_albedo_fileName,Example_fileName)
             SEBAL.save_GeoTiff_proy(lsc, Surf_albedo, surface_albedo_fileName, shape_lsc, nband=1)
 
@@ -289,7 +172,7 @@ def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radi
 
     return(Surf_albedo, NDVI, LAI, vegt_cover, FPAR, Nitrogen, tir_emis, b10_emissivity, water_mask_temp, QC_Map)
 
-def Get_VIIRS_Para_Thermal(workbook, number, Example_fileName, year, DOY, water_mask_temp, b10_emissivity, Temp_inst,  Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed):
+def Get_VIIRS_Para_Thermal(workbook, number, Example_fileName, year, month, day, water_mask_temp, b10_emissivity, Temp_inst,  Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed):
 
     import SEBAL.pySEBAL.pySEBAL_code as SEBAL
 
@@ -352,7 +235,7 @@ def Get_VIIRS_Para_Thermal(workbook, number, Example_fileName, year, DOY, water_
         else:
 
             # Output folder surface temperature
-            surf_temp_fileName = os.path.join(output_folder, 'Output_vegetation','User_surface_temp_%s_%s_%s.tif' %(res2, year, DOY))
+            surf_temp_fileName = os.path.join(output_folder, 'Output_vegetation','User_surface_temp_%s_%s%02d%02d.tif' %(res2, year, month, day))
             Surface_temp = SEBAL.Reshape_Reproject_Input_data(r'%s' %str(ws['D%d' % number].value),surf_temp_fileName, Example_fileName)
             Thermal_Sharpening_not_needed = 1
 
@@ -394,3 +277,205 @@ def Get_VIIRS_Para_Thermal(workbook, number, Example_fileName, year, DOY, water_
     print('Mean Surface Temperature = %s Kelvin' %np.nanmean(Surface_temp))
 
     return(Surface_temp, cloud_mask_temp, Thermal_Sharpening_not_needed)
+    
+def Open_PROBAV_Reflectance(Name_PROBAV_Image, input_folder, output_folder, Example_fileName):
+
+    import SEBAL.pySEBAL.pySEBAL_code as SEBAL
+    
+    # Define bands probav
+    bands=['SM', 'B1', 'B2', 'B3', 'B4']  #'SM', 'BLUE', 'RED', 'NIR', 'SWIR'
+    
+    # Get extension of PROBAV dataset
+    Name_PROBAV, Name_PROBAV_exe = os.path.splitext(Name_PROBAV_Image)
+
+    # Set the index number at 0
+    index=0
+
+    # constants
+    n188_float = 248       
+
+    if (Name_PROBAV_exe == '.hdf5' or Name_PROBAV_exe == '.HDF5'):
+
+        # write the data one by one to the spectral_reflectance_PROBAV
+        for bandnmr in bands:
+
+            # Translate the PROBA-V names to the Landsat band names
+            Band_number = {'SM':7,'B1':8,'B2':10,'B3':9,'B4':11}
+
+            # Open the hdf file
+            Band_PROBAVhdf_fileName = os.path.join(input_folder, Name_PROBAV_Image)
+            g = gdal.Open(Band_PROBAVhdf_fileName, gdal.GA_ReadOnly)
+
+            #  Define temporary file out and band name in
+            name_out = os.path.join(input_folder, '%s_test.tif' % (Name_PROBAV_Image))
+            name_in = g.GetSubDatasets()[Band_number[bandnmr]][0]
+
+            # Get environmental variable
+            SEBAL_env_paths = os.environ["SEBAL"].split(';')
+            GDAL_env_path = SEBAL_env_paths[0]
+            GDAL_TRANSLATE = os.path.join(GDAL_env_path, 'gdal_translate.exe')
+
+            # run gdal translate command
+            FullCmd = '%s -of GTiff %s %s' %(GDAL_TRANSLATE, name_in, name_out)
+            SEBAL.Run_command_window(FullCmd)
+
+            # Get the data array
+            dest_PV = gdal.Open(name_out)
+            Data = dest_PV.GetRasterBand(1).ReadAsArray()
+            dest_PV = None
+ 
+            # Remove temporary file
+            os.remove(name_out)
+
+            # Define the x and y spacing
+            Meta_data = g.GetMetadata()
+            Lat_Top = float(Meta_data['LEVEL3_GEOMETRY_TOP_RIGHT_LATITUDE'])
+            Lon_Left = float(Meta_data['LEVEL3_GEOMETRY_BOTTOM_LEFT_LONGITUDE'])
+            Pixel_size = float((Meta_data['LEVEL3_GEOMETRY_VNIR_VAA_MAPPING']).split(' ')[-3])
+            x_size_pv = int(Data.shape[1])
+            y_size_pv = int(Data.shape[0])
+            ulx = Lon_Left - 0.5*Pixel_size
+            uly = Lat_Top + 0.5*Pixel_size
+            lrx = ulx + x_size_pv * Pixel_size
+            lry = uly - y_size_pv * Pixel_size      
+            
+            # Define the georeference of the PROBA-V data
+            geo_PROBAV=[Lon_Left-0.5*Pixel_size, Pixel_size, 0, Lat_Top+0.5*Pixel_size, 0, -Pixel_size] #0.000992063492063
+
+            ################################# Create a MEMORY file ##############################
+            # create memory output with the PROBA-V band
+            fmt = 'MEM'
+            driver = gdal.GetDriverByName(fmt)
+            dst_dataset = driver.Create('', int(Data.shape[1]), int(Data.shape[0]), 1,gdal.GDT_Float32)
+            dst_dataset.SetGeoTransform(geo_PROBAV)
+
+            # set the reference info
+            srs = osr.SpatialReference()
+            srs.SetWellKnownGeogCS("WGS84")
+            dst_dataset.SetProjection(srs.ExportToWkt())
+
+            # write the array in the geotiff band
+            dst_dataset.GetRasterBand(1).WriteArray(Data)
+
+            ################################# reproject PROBAV MEMORY file ##############################
+
+            # Reproject the PROBA-V band  to match DEM's resolution
+            PROBAV, ulx_dem, lry_dem, lrx_dem, uly_dem, epsg_to = SEBAL.reproject_dataset_example(
+                          dst_dataset, Example_fileName)
+
+            dst_dataset = None
+
+            #################################### Get example information ################################
+
+            if not "shape_lsc" in locals():
+                nrow = PROBAV.RasterYSize
+                ncol = PROBAV.RasterXSize
+                shape_lsc = [ncol, nrow]
+
+            # Open the reprojected PROBA-V band data
+            data_PROBAV_DN = PROBAV.GetRasterBand(1).ReadAsArray(0, 0, ncol, nrow)
+
+            # Define the filename to store the cropped Landsat image
+            dst_FileName = os.path.join(output_folder, 'Output_radiation_balance','proy_PROBAV_%s.tif' % bandnmr)
+
+            # close the PROBA-V
+            g=None
+
+            if not "spectral_reflectance_PROBAV" in locals():
+                spectral_reflectance_PROBAV=np.zeros([shape_lsc[1], shape_lsc[0], 5])
+
+            # If the band data is the SM band than write the data into the spectral_reflectance_PROBAV and create cloud mask
+            if bandnmr is 'SM':
+                cloud_mask_temp = np.zeros(data_PROBAV_DN.shape)
+                cloud_mask_temp[data_PROBAV_DN[:,:]!=n188_float]=1
+                spectral_reflectance_PROBAV[:, :, index] = cloud_mask_temp
+
+            # If the band data is not SM change the DN values into PROBA-V values and write into the spectral_reflectance_PROBAV
+            else:
+                data_PROBAV=data_PROBAV_DN/2000
+                spectral_reflectance_PROBAV[:, :, index]=data_PROBAV[:, :]
+
+            # Change the spectral reflectance to meet certain limits
+            spectral_reflectance_PROBAV[:, :, index]=np.where(spectral_reflectance_PROBAV[:, :, index]<=0,np.nan,spectral_reflectance_PROBAV[:, :, index])
+            spectral_reflectance_PROBAV[:, :, index]=np.where(spectral_reflectance_PROBAV[:, :, index]>=150,np.nan,spectral_reflectance_PROBAV[:, :, index])
+
+            # Save the PROBA-V as a tif file
+            SEBAL.save_GeoTiff_proy(PROBAV, spectral_reflectance_PROBAV[:, :, index], dst_FileName, shape_lsc, nband=1)
+
+            # Go to the next index
+            index=index+1
+            
+    else:
+        for bandnmr in bands:
+
+            # Open information
+            Band_PROBAVhdf_fileName = os.path.join(input_folder, "%s_%s.tif" %(Name_PROBAV_Image, bandnmr))
+            g = gdal.Open(Band_PROBAVhdf_fileName, gdal.GA_ReadOnly) 
+            
+            # Open original raster band
+            x_size_pv = g.RasterXSize
+            y_size_pv = g.RasterYSize
+            geo_out = g.GetGeoTransform()
+            ulx = geo_out[0]
+            uly = geo_out[3]
+            xDist = geo_out[1]
+            yDist = geo_out[5]   
+            lrx = ulx + x_size_pv * xDist
+            lry = uly - y_size_pv * yDist                  
+            
+            # Reproject the PROBA-V band  to match DEM's resolution
+            PROBAV, ulx_dem, lry_dem, lrx_dem, uly_dem, epsg_to = SEBAL.reproject_dataset_example(
+                          g, Example_fileName)
+        
+            data_PROBAV = PROBAV.GetRasterBand(1).ReadAsArray()
+            
+            # Define example array properties
+            if not "shape_lsc" in locals():
+                nrow = PROBAV.RasterYSize
+                ncol = PROBAV.RasterXSize
+                shape_lsc = [ncol, nrow]
+            
+            # Define spectal reflactance empty array
+            if not "spectral_reflectance_PROBAV" in locals():
+                spectral_reflectance_PROBAV=np.zeros([shape_lsc[1], shape_lsc[0], 5])
+   
+
+            # If the band data is the SM band than write the data into the spectral_reflectance_PROBAV and create cloud mask
+            if bandnmr is 'SM':
+                cloud_mask_temp = np.zeros(data_PROBAV.shape)
+                cloud_mask_temp[data_PROBAV[:,:]!=n188_float]=1
+                spectral_reflectance_PROBAV[:, :, index] = cloud_mask_temp
+         
+            # If the band data is not SM change the DN values into PROBA-V values and write into the spectral_reflectance_PROBAV
+            else:
+                spectral_reflectance_PROBAV[:, :, index]=data_PROBAV[:, :]/2000
+
+            # Define the filename to store the cropped Landsat image
+            dst_FileName = os.path.join(output_folder, 'Output_radiation_balance','proy_PROBAV_%s.tif' % bandnmr)
+
+            # Define shape
+            if not "shape_lsc" in locals():
+                nrow = PROBAV.RasterYSize
+                ncol = PROBAV.RasterXSize
+                shape_lsc = [ncol, nrow]   
+          
+            SEBAL.save_GeoTiff_proy(PROBAV, spectral_reflectance_PROBAV[:, :, index], dst_FileName, shape_lsc, nband=1)
+        
+            # Go to the next index
+            index=index+1    
+
+    # Original size PROBAV dataset
+    print('Original PROBA-V Image - ')
+    print('  Size :', x_size_pv, y_size_pv)
+    print('  Upper Left corner x, y: ', ulx, ', ', uly)
+    print('  Lower right corner x, y: ', lrx, ', ', lry)
+
+    print('Reprojected PROBA-V Image - ')
+    print('  Size :', shape_lsc[1], shape_lsc[0])
+    print('  Upper Left corner x, y: ', ulx_dem, ', ', uly_dem)
+    print('  Lower right corner x, y: ', lrx_dem, ', ', lry_dem)
+    
+    return(spectral_reflectance_PROBAV, cloud_mask_temp)    
+    
+    
+    

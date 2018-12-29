@@ -34,7 +34,7 @@ def Get_Time_Info(workbook, number):
     return(year, DOY, hour, minutes, UTM_Zone, Sun_elevation, Landsat_nr)
 
 
-def Get_LS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radiance, Apparent_atmosf_transm, cos_zn, dr):
+def Get_LS_Para_Veg(workbook, number, Example_fileName, year, month, day, path_radiance, Apparent_atmosf_transm, cos_zn, dr):
 
     import SEBAL.pySEBAL.pySEBAL_code as SEBAL
 
@@ -153,7 +153,7 @@ def Get_LS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radiance
 
         # save spectral data
         for i in range(0,6):
-            spec_ref_fileName = os.path.join(output_folder, 'Output_radiation_balance','%s_spectral_reflectance_B%s_%s_%s_%s.tif' %(sensor1, Bands[i], res3, year, DOY))
+            spec_ref_fileName = os.path.join(output_folder, 'Output_radiation_balance','%s_spectral_reflectance_B%s_%s_%s%02d%02d.tif' %(sensor1, Bands[i], res3, year, month, day))
             SEBAL.save_GeoTiff_proy(lsc, Reflect[:, :, i], spec_ref_fileName, shape_lsc, nband=1)
 
     else:
@@ -173,7 +173,7 @@ def Get_LS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radiance
         if (ws['B%d' % number].value) is not None:
 
             # Output folder NDVI
-            ndvi_fileName_user = os.path.join(output_folder, 'Output_vegetation', 'User_NDVI_%s_%s_%s.tif' %(res3, year, DOY))
+            ndvi_fileName_user = os.path.join(output_folder, 'Output_vegetation', 'User_NDVI_%s_%s%02d%02d.tif' %(res3, year, month, day))
             NDVI=SEBAL.Reshape_Reproject_Input_data(r'%s' %str(ws['B%d' % number].value),ndvi_fileName_user,Example_fileName)
 
             water_mask_temp = np.zeros((shape_lsc[1], shape_lsc[0]))
@@ -195,7 +195,7 @@ def Get_LS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radiance
         if (ws['E%d' % number].value) is not None:
 
             # Overwrite the Water mask and change the output name
-            water_mask_temp_fileName = os.path.join(output_folder, 'Output_soil_moisture', 'User_Water_mask_temporary_%s_%s_%s.tif' %(res2, year, DOY))
+            water_mask_temp_fileName = os.path.join(output_folder, 'Output_soil_moisture', 'User_Water_mask_temporary_%s_%s%02d%02d.tif' %(res2, year, month, day))
             water_mask_temp = SEBAL.Reshape_Reproject_Input_data(r'%s' %str(ws['E%d' % number].value), water_mask_temp_fileName, Example_fileName)
             SEBAL.save_GeoTiff_proy(lsc, water_mask_temp, water_mask_temp_fileName, shape_lsc, nband=1)
 
@@ -207,7 +207,7 @@ def Get_LS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radiance
         if (ws['C%d' % number].value) is not None:
 
             # Output folder surface albedo
-            surface_albedo_fileName = os.path.join(output_folder, 'Output_vegetation','User_surface_albedo_%s_%s_%s.tif' %(res2, year, DOY))
+            surface_albedo_fileName = os.path.join(output_folder, 'Output_vegetation','User_surface_albedo_%s_%s%02d%02d.tif' %(res2, year, month, day))
             Surf_albedo=SEBAL.Reshape_Reproject_Input_data(r'%s' %str(ws['C%d' % number].value),surface_albedo_fileName,Example_fileName)
             SEBAL.save_GeoTiff_proy(lsc, Surf_albedo, surface_albedo_fileName, shape_lsc, nband=1)
 
@@ -228,9 +228,12 @@ def Get_LS_Para_Veg(workbook, number, Example_fileName, year, DOY, path_radiance
     print('Average Vegetation Cover = %s' %np.nanmean(vegt_cover))
     print('Average FPAR = %s' %np.nanmean(FPAR))
 
+    if not "QC_Map" in locals():
+       QC_Map=np.zeros((shape_lsc[1], shape_lsc[0])) 
+
     return(Surf_albedo, NDVI, LAI, vegt_cover, FPAR, Nitrogen, tir_emis, b10_emissivity, water_mask_temp, QC_Map)
 
-def Get_LS_Para_Thermal(workbook, number, Example_fileName, year, DOY,  water_mask_temp, b10_emissivity, Temp_inst, Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed, DEM_fileName, UTM_Zone, eact_inst, QC_Map):
+def Get_LS_Para_Thermal(workbook, number, Example_fileName, year, month, day, water_mask_temp, b10_emissivity, Temp_inst, Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed, DEM_fileName, UTM_Zone, eact_inst, QC_Map):
 
     import SEBAL.pySEBAL.pySEBAL_code as SEBAL
 
@@ -320,9 +323,9 @@ def Get_LS_Para_Thermal(workbook, number, Example_fileName, year, DOY,  water_ma
     else:
         try:
             # Output folder surface temperature
-            surf_temp_fileName = os.path.join(output_folder, 'Output_vegetation','User_surface_temp_%s_%s_%s.tif' %(res2, year, DOY))
+            surf_temp_fileName = os.path.join(output_folder, 'Output_vegetation','User_surface_temp_%s_%s%02d%02d.tif' %(res2, year, month, day))
             Surface_temp = SEBAL.Reshape_Reproject_Input_data(r'%s' %str(ws['D%d' % number].value),surf_temp_fileName,Example_fileName)
-            cloud_mask_temp = np.zeros([int(np.shape(Surface_temp)[1]),int(np.shape(Surface_temp)[0])])
+            cloud_mask_temp = np.zeros([int(np.shape(Surface_temp)[0]),int(np.shape(Surface_temp)[1])])
             Thermal_Sharpening_not_needed = 0
 
         except:

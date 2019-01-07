@@ -68,7 +68,7 @@ def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, month, day, pa
     res1 = '375m'
     res2 = '100m'
     res3 = '30m'    
-    
+
     # If all additional fields are filled in than do not open the datasets
     if ws['B%d' % number].value is None or ws['C%d' % number].value is None:
 
@@ -83,19 +83,18 @@ def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, month, day, pa
 ##############################################################################################################################################
 ############################################# maak hier een functie van zodat deze ook in preSEBAL_1.py gebruikt kan worden ##################
 ##############################################################################################################################################
-       
-        spectral_reflectance_PROBAV, cloud_mask_temp = Open_PROBAV_Reflectance(Name_PROBAV_Image, input_folder, output_folder, Example_fileName)
 
+        spectral_reflectance_PROBAV, cloud_mask_temp = Open_PROBAV_Reflectance(Name_PROBAV_Image, input_folder, output_folder, Example_fileName)
+  
 ##############################################################################################################################################
 ############################    RETURN spectral_reflectance_PROBAV, cloud_mask_temp      #####################################################
 ##############################################################################################################################################
-
-    else:
-        # Get General information example file
-        lsc = gdal.Open(Example_fileName)
-        nrow = lsc.RasterYSize
-        ncol = lsc.RasterXSize
-        shape_lsc = [ncol, nrow]
+    
+    # Get General information example file
+    lsc = gdal.Open(Example_fileName)
+    nrow = lsc.RasterYSize
+    ncol = lsc.RasterXSize
+    shape_lsc = [ncol, nrow]
 
     ######################### Calculate Vegetation Parameters Based on VIS data #####################################
 
@@ -104,58 +103,62 @@ def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, month, day, pa
 
     # Check NDVI and Calculate NDVI
     try:
-        if (ws['B%d' % number].value) is not None:
-
+        if (ws['B%d' % number].value) is None:          
+            n218_memory = spectral_reflectance_PROBAV[:, :, 2] + spectral_reflectance_PROBAV[:, :, 3]
+            NDVI = np.zeros((shape_lsc[1], shape_lsc[0]))
+            NDVI[n218_memory != 0] =  ( spectral_reflectance_PROBAV[:, :, 3][n218_memory != 0] - spectral_reflectance_PROBAV[:, :, 2][n218_memory != 0] )/ ( spectral_reflectance_PROBAV[:, :, 2][n218_memory != 0] + spectral_reflectance_PROBAV[:, :, 3][n218_memory != 0] )
+ 
+            # Create Water mask based on PROBA-V
+            water_mask_temp = np.zeros((shape_lsc[1], shape_lsc[0]))
+            water_mask_temp[np.logical_and(spectral_reflectance_PROBAV[:, :, 2] >= spectral_reflectance_PROBAV[:, :, 3],DEM_resh>0)]=1
+            
+        else:
             # Output folder NDVI
+            if not os.path.exists(os.path.join(output_folder, 'Output_vegetation')):
+                os.makedirs(os.path.join(output_folder, 'Output_vegetation'))
             ndvi_fileName_user = os.path.join(output_folder, 'Output_vegetation', 'User_NDVI_%s_%s%02d%02d.tif' %(res3, year, month, day))
             NDVI = SEBAL.Reshape_Reproject_Input_data(r'%s' %str(ws['B%d' % number].value),ndvi_fileName_user,Example_fileName)
             water_mask_temp = np.zeros((shape_lsc[1], shape_lsc[0]))            
             water_mask_temp[NDVI < 0.0] = 1.0               
             SEBAL.save_GeoTiff_proy(lsc, NDVI, ndvi_fileName_user, shape_lsc, nband=1)
-            
-        else:
-            n218_memory = spectral_reflectance_PROBAV[:, :, 2] + spectral_reflectance_PROBAV[:, :, 3]
-            NDVI = np.zeros((shape_lsc[1], shape_lsc[0]))
-            NDVI[n218_memory != 0] =  ( spectral_reflectance_PROBAV[:, :, 3][n218_memory != 0] - spectral_reflectance_PROBAV[:, :, 2][n218_memory != 0] )/ ( spectral_reflectance_PROBAV[:, :, 2][n218_memory != 0] + spectral_reflectance_PROBAV[:, :, 3][n218_memory != 0] )
-
-            # Create Water mask based on PROBA-V
-            water_mask_temp = np.zeros((shape_lsc[1], shape_lsc[0]))
-            water_mask_temp[np.logical_and(spectral_reflectance_PROBAV[:, :, 2] >= spectral_reflectance_PROBAV[:, :, 3],DEM_resh>0)]=1
-
+         
     except:
-        assert "Please check the NDVI input path"
+        print("Please check the NDVI input path")
 
     # Check Water Mask and replace if it is filled in the additianal data sheet
     try:
         if (ws['E%d' % number].value) is not None:
-
+            
+            if not os.path.exists(os.path.join(output_folder, 'Output_soil_moisture')):
+                os.makedirs(os.path.join(output_folder, 'Output_soil_moisture')) 
+                
             # Overwrite the Water mask and change the output name
             water_mask_temp_fileName = os.path.join(output_folder, 'Output_soil_moisture', 'User_Water_mask_temporary_%s_%s%02d%02d.tif' %(res2, year, month, day))
             water_mask_temp = SEBAL.Reshape_Reproject_Input_data(r'%s' %str(ws['E%d' % number].value), water_mask_temp_fileName, Example_fileName)
             SEBAL.save_GeoTiff_proy(lsc, water_mask_temp, water_mask_temp_fileName, shape_lsc, nband=1)
 
     except:
-        assert "Please check the Water Mask input path"
+        print("Please check the Water Mask input path")
 
     # Check Surface albedo
     try:
         if (ws['C%d' % number].value) is not None:
 
             # Output folder surface albedo
+            if not os.path.exists(os.path.join(output_folder, 'Output_vegetation')):
+                os.makedirs(os.path.join(output_folder, 'Output_vegetation'))
             surface_albedo_fileName = os.path.join(output_folder, 'Output_vegetation','User_surface_albedo_%s_%s%02d%02d.tif' %(res2, year, month, day))
             Surf_albedo=SEBAL.Reshape_Reproject_Input_data(r'%s' %str(ws['C%d' % number].value),surface_albedo_fileName,Example_fileName)
             SEBAL.save_GeoTiff_proy(lsc, Surf_albedo, surface_albedo_fileName, shape_lsc, nband=1)
 
         else:
-
             # Calculate surface albedo based on PROBA-V
             Surf_albedo = 0.219 * spectral_reflectance_PROBAV[:, :, 1] + 0.361 * spectral_reflectance_PROBAV[:, :, 2] + 0.379 * spectral_reflectance_PROBAV[:, :, 3] + 0.041 * spectral_reflectance_PROBAV[:, :, 4]
-
             # Set limit surface albedo
             Surf_albedo = np.minimum(Surf_albedo, 0.6)
 
     except:
-          assert "Please check the Albedo input path"
+          print("Please check the Albedo input path")
 
     # calculate vegetation properties
     FPAR,tir_emis,Nitrogen,vegt_cover,LAI,b10_emissivity=SEBAL.Calc_vegt_para(NDVI, water_mask_temp, shape_lsc)
@@ -324,9 +327,6 @@ def Open_PROBAV_Reflectance(Name_PROBAV_Image, input_folder, output_folder, Exam
             Data = dest_PV.GetRasterBand(1).ReadAsArray()
             dest_PV = None
  
-            # Remove temporary file
-            os.remove(name_out)
-
             # Define the x and y spacing
             Meta_data = g.GetMetadata()
             Lat_Top = float(Meta_data['LEVEL3_GEOMETRY_TOP_RIGHT_LATITUDE'])
@@ -404,6 +404,9 @@ def Open_PROBAV_Reflectance(Name_PROBAV_Image, input_folder, output_folder, Exam
 
             # Go to the next index
             index=index+1
+            
+            # Remove temporary file
+            os.remove(name_out)
             
     else:
         for bandnmr in bands:

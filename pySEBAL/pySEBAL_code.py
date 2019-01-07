@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-pySEBAL_3.4.0
+pySEBAL_3.4.0.1
 
 @author: Tim Hessels, Jonna van Opstal, Patricia Trambauer, Wim Bastiaanssen, Mohamed Faouzi Smiej, Yasir Mohamed, and Ahmed Er-Raji
          UNESCO-IHE
@@ -174,7 +174,7 @@ def main(number, inputExcel):
 
     if Image_Type is 1:
 
-        year, DOY, hour, minutes, UTM_Zone, Sun_elevation, Landsat_nr = input_LS.Get_Time_Info(wb, number)
+        year, DOY, hour_GMT, minutes_GMT, UTM_Zone, Sun_elevation, Landsat_nr = input_LS.Get_Time_Info(wb, number)
 
         # define the kind of sensor and resolution of the sensor
         pixel_spacing = int(30)
@@ -195,7 +195,7 @@ def main(number, inputExcel):
 
     if Image_Type is 2:
 
-        year, DOY, hour, minutes, UTM_Zone = input_PROBAV_VIIRS.Get_Time_Info(wb, number)
+        year, DOY, hour_GMT, minutes_GMT, UTM_Zone = input_PROBAV_VIIRS.Get_Time_Info(wb, number)
 
         # define the kind of sensor and resolution of the sensor
         pixel_spacing = int(100)
@@ -333,11 +333,6 @@ def main(number, inputExcel):
     print('---------------------------------------------------------')
     print('General info: ')
     print('  DOY: ', DOY)
-
-    if not Image_Type == 3:
-        print('  Hour: ', hour)
-        print('  Minutes: ', '%0.3f' % minutes)
-
     print('  UTM_Zone: ', UTM_Zone)
 
     print('---------------------------------------------------------')
@@ -403,13 +398,23 @@ def main(number, inputExcel):
     # now we can also get the time for a MODIS run
     if Image_Type == 3:
 
-       hour, minutes = input_MODIS.Modis_Time(wb, epsg_to, number, proyDEM_fileName)
-       hour = np.nanmean(hour)
-       minutes = np.nanmean(minutes)
+       # get local time from modis
+       hour_loc, minutes_loc = input_MODIS.Modis_Time(wb, epsg_to, number, proyDEM_fileName)
+       hour_loc = np.nanmean(hour_loc)
+       minutes_loc = np.nanmean(minutes_loc)
 
+    # transform GTM to local time 
+    else:    
+        
+       # Rounded difference of the local time from Greenwich (GMT) (hours):
+       offset_GMT = round(lon[int(lon.shape[0]/2),int(lon.shape[1]/2)] * 24 / 360)
+
+       # calculate GTM hour
+       hour_loc = hour_GMT + offset_GMT
+       minutes_loc = minutes_GMT
 
     # Calculation of extraterrestrial solar radiation for slope and aspect
-    Ra_mountain_24, Ra_inst, cos_zn, dr, phi, delta = Calc_Ra_Mountain(lon, DOY, hour, minutes, lon_proy, lat_proy, slope, aspect)
+    Ra_mountain_24, Ra_inst, cos_zn, dr, phi, delta = Calc_Ra_Mountain(lon, DOY, hour_loc, minutes_loc, lon_proy, lat_proy, slope, aspect)
 
     if Image_Type == 2 or Image_Type == 3:
         Sun_elevation = 90 - (np.nanmean(cos_zn) * 180/np.pi)
@@ -1788,8 +1793,9 @@ def CalculateSnowWaterMask(NDVI,shape_lsc,water_mask_temp,Surface_temp):
 
    return(snow_mask,water_mask,ts_moist_veg_min, NDVI_max, NDVI_std)
 
+
 #------------------------------------------------------------------------------
-def Calc_Ra_Mountain(lon,DOY,hour,minutes,lon_proy,lat_proy,slope,aspect):
+def Calc_Ra_Mountain(lon,DOY,hour_loc,minutes_loc,lon_proy,lat_proy,slope,aspect):
     """
     Calculates the extraterrestiral solar radiation by using the date, slope and aspect.
     """
@@ -1799,14 +1805,19 @@ def Calc_Ra_Mountain(lon,DOY,hour,minutes,lon_proy,lat_proy,slope,aspect):
     Min_cos_zn = 0.1  # Min value for cos zenith angle
     Max_cos_zn = 1.0  # Max value for cos zenith angle
     Gsc = 1367        # Solar constant (W / m2)
-    try:
-        Loc_time = float(hour) + float(minutes)/60  # Local time (hours)
-    except:
-        Loc_time = np.float_(hour) + np.float_(minutes)/60  # Local time (hours)
+    
     # Rounded difference of the local time from Greenwich (GMT) (hours):
-    offset_GTM = round(np.sign(lon[int(lon.shape[0]/2), int(lon.shape[1]/2)]) * lon[int(lon.shape[0]/2),int(lon.shape[1]/2)] * 24 / 360)
+    offset_GTM = round(lon[int(lon.shape[0]/2),int(lon.shape[1]/2)] * 24 / 360)
+    
+    try:
+        GMT_time = float(hour_loc) - offset_GTM + float(minutes_loc)/60  # Local time (hours)
+        Loc_time = float(hour_loc) + float(minutes_loc)/60  # Local time (hours)        
+    except:
+        GMT_time = np.float_(hour_loc) - offset_GTM + np.float_(minutes_loc)/60  # Local time (hours)
+        Loc_time = np.float_(hour_loc) + np.float_(minutes_loc)/60  # Local time (hours)
 
-    print('  Local time: ', '%0.3f' % np.nanmean(Loc_time))
+    print('  Local Time: ', '%0.3f' % np.nanmean(Loc_time))
+    print('  GMT Time: ', '%0.3f' % np.nanmean(GMT_time))    
     print('  Difference of local time (LT) from Greenwich (GMT): ', offset_GTM)
 
     # 1. Calculation of extraterrestrial solar radiation for slope and aspect
@@ -1818,7 +1829,7 @@ def Calc_Ra_Mountain(lon,DOY,hour,minutes,lon_proy,lat_proy,slope,aspect):
     phi = lat_proy * deg2rad                                     # latitude of the pixel (radians)
     s = slope * deg2rad                                          # Surface slope (radians)
     gamma = (aspect-180) * deg2rad                               # Surface aspect angle (radians)
-    w=w_time(Loc_time, lon_proy, DOY)                            # Hour angle (radians)
+    w=w_time(GMT_time, lon_proy, DOY)                            # Hour angle (radians)
     a,b,c = Constants(delta,s,gamma,phi)
     cos_zn= AngleSlope(a,b,c,w)
     cos_zn = cos_zn.clip(Min_cos_zn, Max_cos_zn)
@@ -2315,7 +2326,7 @@ def save_GeoTiff_proy(src_dataset, dst_dataset_array, dst_fileName, shape_lsc, n
     dst_dataset = None
 
 #------------------------------------------------------------------------------
-def w_time(LT,lon_proy, DOY):
+def w_time(GMT,lon_proy, DOY):
     """
     This function computes the hour angle (radians) of an image given the
     local time, longitude, and day of the year.
@@ -2324,10 +2335,9 @@ def w_time(LT,lon_proy, DOY):
     nrow, ncol = lon_proy.shape
 
     # Difference of the local time (LT) from Greenwich Mean Time (GMT) (hours):
-    delta_GTM = np.sign(lon_proy[int(nrow/2), int(ncol/2)]) * lon_proy[int(nrow/2), int(ncol/2)] * 24 / 360
+    delta_GTM = lon_proy[int(nrow/2), int(ncol/2)] * 24 / 360
     if np.isnan(delta_GTM) == True:
          delta_GTM = np.nanmean(lon_proy) * np.nanmean(lon_proy)  * 24 / 360
-
 
     # Local Standard Time Meridian (degrees):
     LSTM = 15 * delta_GTM
@@ -2338,14 +2348,11 @@ def w_time(LT,lon_proy, DOY):
 
     # Net Time Correction Factor (minutes) at the center of the image:
     TC = 4 * (lon_proy - LSTM) + EoT     # Difference in time over the longitude
-    LST = LT + delta_GTM + TC/60         # Local solar time (hours)
+    LST = GMT + delta_GTM + TC/60         # Local solar time (hours)
     HRA = 15 * (LST-12)                  # Hour angle HRA (degrees)
     deg2rad = np.pi / 180.0              # Factor to transform from degree to rad
     w = HRA * deg2rad                    # Hour angle HRA (radians)
     return w
-
-
-
 #------------------------------------------------------------------------------
 def sensible_heat(rah, ustar, rn_inst, g_inst, ts_dem, ts_dem_hot, ts_dem_cold,
                   air_dens, Surf_temp, k_vk, QC_Map, hot_pixels, slope):

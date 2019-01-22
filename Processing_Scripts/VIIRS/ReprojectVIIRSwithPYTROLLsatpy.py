@@ -11,6 +11,33 @@ Change line 21 and 22 to define the input and output files and change the
 region in line 92 and run the code
 """
 
+from satpy import Scene
+import glob
+import os 
+
+os.chdir(r"C:\Users\timhe\Documents\WaterSat\VIIRStest")
+filenames = glob.glob("*d20170101_t1922563_e1928367_b26849_*")
+
+global_scene = Scene(reader="viirs_sdr", filenames=filenames)
+nebraska_scene = global_scene.resample('nebraska', resampler = 'nearest')
+
+nebraska_scene.save_datasets()
+
+from satpy import MultiScene
+
+mscn = MultiScene(global_scene)
+mscn.load(['I05'])
+
+my_area = mscn['I05'].attrs['area'].compute_optimal_bb_area({'proj': 'lcc', 'lon_0': -95., 'lat_0': 25., 'lat_1': 25., 'lat_2': 25.})
+new_scn = mscn.resample(my_area)
+
+
+from pyresample.geometry import AreaDefinition
+
+my_area = AreaDefinition("nebraska")
+
+
+
 import numpy as np
 import os
 import mpop
@@ -18,8 +45,8 @@ from mpop.satellites import PolarFactory
 from datetime import datetime
 import glob
 
-input_folder = r"C:\Users\timhe\Documents\WaterSat\VIIRStest"
-output_folder = r"C:\Users\timhe\Documents\WaterSat\VIIRStest"
+input_folder = r"K:\Project_OpenET\PV_VIIRS_Test_Run\Input\VIIRS_RAW"
+output_folder = r"K:\Project_OpenET\PV_VIIRS_Test_Run\Input\VIIRS_UTM"
 os.chdir(input_folder)
 re = glob.glob("GITCO_*.h5")
 

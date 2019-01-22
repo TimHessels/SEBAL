@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 
 """
-pySEBAL_3.4.2
+pySEBAL_3.4.1
+
 @author: Tim Hessels, Wim Bastiaanssen, Patricia Trambauer,Mohamed Faouzi Smiej, Ahmed Er-Raji, and Jonna van Opstal
+
 """
 import sys
 import os
@@ -52,7 +54,7 @@ def main(number, inputExcel):
     print('.................................................................. ')
     print('......................SEBAL Model running ........................ ')
     print('.................................................................. ')
-    print('pySEBAL version 3.4.2 Github')
+    print('pySEBAL version 3.4.1 Github')
     print('General Input:')
     print('input_folder = %s' %str(input_folder))
     print('output_folder = %s' %str(output_folder))
@@ -138,8 +140,10 @@ def main(number, inputExcel):
 
     # Data for Module 11 - Sensible Heat Flux
     surf_roughness_equation_used = 2 # NDVI model = 1, Raupach model = 2
+    dT_cold_factor = 0.0
     print('General Constants: Sensible Heat Flux (Part 11)')
     print('NDVI model(1), Raupach model(2) = %s' %surf_roughness_equation_used)
+    print('Initial dT cold factor = %s' %dT_cold_factor)    
     print(' ')
 
     # Data for Module 12 - Evapotranspiration
@@ -346,7 +350,7 @@ def main(number, inputExcel):
     # Reproject from Geog Coord Syst to UTM -
     # 1) DEM - Original DEM coordinates is Geographic: lat, lon
     lsc, ulx_dem, lry_dem, lrx_dem, uly_dem, epsg_to = reproject_dataset(
-                DEM_fileName, pixel_spacing, UTM_Zone = UTM_Zone, fit_extend = True)
+                DEM_fileName, pixel_spacing, UTM_Zone = UTM_Zone)
     band = lsc.GetRasterBand(1)   # Get the reprojected dem band
     ncol = lsc.RasterXSize        # Get the reprojected dem column size
     nrow = lsc.RasterYSize        # Get the reprojected dem row size
@@ -354,7 +358,7 @@ def main(number, inputExcel):
 
     # Read out the DEM band and print the DEM properties
     DEM_resh = band.ReadAsArray(0, 0, ncol, nrow)
-    #DEM_resh[DEM_resh<0] = 1
+    DEM_resh[DEM_resh<0] = 0
     
     # Save DEM reprojected
     save_GeoTiff_proy(lsc, DEM_resh, proyDEM_fileName, shape_lsc, nband = 1)
@@ -895,10 +899,10 @@ def main(number, inputExcel):
             NDVI_std = np.nanstd(NDVI)
 
         # Cold pixels vegetation
-        ts_dem_cold_veg_mean, cold_pixels_vegetation = Calc_Cold_Pixels_Veg(NDVI, NDVI_max, NDVI_std, QC_Map, ts_dem)
+        ts_dem_cold_veg_mean = Calc_Cold_Pixels_Veg(NDVI,NDVI_max,NDVI_std, QC_Map,ts_dem,Image_Type)
 
         # Cold pixels water
-        ts_dem_cold_mean, cold_pixels = Calc_Cold_Pixels(ts_dem, water_mask, QC_Map, ts_dem_cold_veg_mean, cold_pixels_vegetation)
+        ts_dem_cold_mean, cold_pixels, dT_cold_factor = Calc_Cold_Pixels(ts_dem, water_mask, QC_Map, ts_dem_cold_veg_mean, dT_cold_factor)
         if np.isnan(ts_dem_cold_mean) == True:
             ts_dem_cold_mean = Temp_inst
             
@@ -916,7 +920,7 @@ def main(number, inputExcel):
 
     else:
         # Hot pixels
-        ts_dem_hot_mean, hot_pixels = Calc_Hot_Pixels(ts_dem, QC_Map, water_mask, NDVI, NDVIhot_low, NDVIhot_high, ts_dem_cold_mean)
+        ts_dem_hot_mean,hot_pixels = Calc_Hot_Pixels(ts_dem, QC_Map, water_mask, NDVI, NDVIhot_low, NDVIhot_high, ts_dem_cold_mean)
         save_GeoTiff_proy(lsc, hot_pixels, hot_pixels_fileName, shape_lsc, nband=1)
  
     # Get the cold_pixel value if it is not defined by user
@@ -956,64 +960,67 @@ def main(number, inputExcel):
     Surf_roughness,u_200,ustar_1=Calc_Wind_Speed_Friction(h_obst,Wind_inst,zx,LAI,NDVI,Surf_albedo,water_mask,surf_roughness_equation_used)
     save_GeoTiff_proy(lsc, Surf_roughness, surf_rough_fileName, shape_lsc, nband=1)
 
-    # calculate reference net radiation
-    Rn_ref, Refl_rad_water, rah_grass=Calc_Rn_Ref(shape_lsc,water_mask,Rn_24,Ra_mountain_24,Transm_24,Rnl_24_FAO,Wind_24)
-
     # Computation of surface roughness for momentum transport
     k_vk = 0.41      # Von Karman constant
-    rah_pm_pot=((np.log((2.0-0.0)/(Surf_roughness*0.1))*np.log((2.0-0.0)/(Surf_roughness)))/(k_vk*1.5**2))*((1-5*(-9.82*4.0*(2.0-0.0))/((273.15+Temp_inst)*1.5**2))**(-0.75))
-    rah_pm_pot[rah_pm_pot<25]=25
-    
-    # calculate  potential evaporation.
-    ETpot_24, Lhv, rs_min = Calc_Pot_ET(LAI, Surface_temp, sl_es_24, air_dens, esat_24, eact_24, Psychro_c, Rn_24, Refl_rad_water, rah_pm_pot, rl)
-    LE_pot = ETpot_24 * (Lhv * 1000) / 86400000
-    g_24 = 0
-    
-    # Potential Evaporative fraction
-    max_EF = Calc_instantaneous_ET_fraction(LE_pot, Rn_24, g_24)
-    max_EF[water_mask == 1] = 1
-    
-    # Sensible heat 1
+
+    # Sensible heat 1 (Step 5)
     # Corrected value for the aerodynamic resistance (eq 41 with psi2 = psi1):
     rah1 = np.log(2.0/0.01) / (k_vk * ustar_1)
     i=0
-    L, psi_m200_stable, psi, psi_m200,h_inst,dT = sensible_heat(
+    L, psi_m200_stable, psi, psi_m200,h_inst,dT, slope_dt, offset_dt,dT_ini = sensible_heat(
             rah1, ustar_1, rn_inst, g_inst, ts_dem, ts_dem_hot, ts_dem_cold,
-            air_dens, temp_surface_sharpened, k_vk,QC_Map, hot_pixels, cold_pixels, slope, max_EF)
+            air_dens, temp_surface_sharpened, k_vk,QC_Map, hot_pixels, slope, dT_cold_factor)
 
     # do the calculation iteratively 10 times
     for i in range(1,10):
-        L,psi,psi_m200,psi_m200_stable,h_inst,dT = Iterate_Friction_Velocity(k_vk,u_200,Surf_roughness,g_inst,rn_inst, ts_dem, ts_dem_hot, ts_dem_cold,air_dens, temp_surface_sharpened,L,psi,psi_m200,psi_m200_stable,QC_Map, hot_pixels, cold_pixels, slope, max_EF)
+        L,psi,psi_m200,psi_m200_stable,h_inst,dT, slope_dt, offset_dt,dT_ini, rah_corr = Iterate_Friction_Velocity(k_vk,u_200,Surf_roughness,g_inst,rn_inst, ts_dem, ts_dem_hot, ts_dem_cold,air_dens, temp_surface_sharpened,L,psi,psi_m200,psi_m200_stable,QC_Map, hot_pixels, slope, dT_cold_factor)
 
     # Save files
     save_GeoTiff_proy(lsc, h_inst, h_inst_fileName, shape_lsc, nband=1)
+    
+    # Temporary Save
+    dT_fileName = os.path.join(output_folder, 'Output_energy_balance', '%s_%s_dT_%s_%s%02d%02d.tif' %(sensor1, sensor2, res2, year, month, day))
+    save_GeoTiff_proy(lsc, dT, dT_fileName, shape_lsc, nband=1)
+    dT2_fileName = os.path.join(output_folder, 'Output_energy_balance', '%s_%s_dT2_%s_%s%02d%02d.tif' %(sensor1, sensor2, res2, year, month, day))
+    save_GeoTiff_proy(lsc, dT_ini, dT2_fileName, shape_lsc, nband=1)
+
+    # Temporary save
+    rah_fileName = surface_albedo_fileName = os.path.join(output_folder, 'Output_vegetation','%s_rah_%s_%s%02d%02d.tif' %(sensor1, res2, year, month, day))
+    save_GeoTiff_proy(lsc, rah_corr, rah_fileName, shape_lsc, nband=1)
+    airdens_fileName =  os.path.join(output_folder, 'Output_vegetation','%s_airdens_%s_%s%02d%02d.tif' %(sensor1, res2, year, month, day))
+    save_GeoTiff_proy(lsc, air_dens, airdens_fileName, shape_lsc, nband=1)
     
     print('---------------------------------------------------------')
     print('-------------- Evaporation (Part 12) --------------------')
     print('---------------------------------------------------------')
 
+    # calculate reference net radiation
+    Rn_ref, Refl_rad_water, rah_grass=Calc_Rn_Ref(shape_lsc,water_mask,Rn_24,Ra_mountain_24,Transm_24,Rnl_24_FAO,Wind_24)
 
     # Calculate rah of PM for the ET act (dT after iteration) and ETpot (4 degrees)
     rah_pm_act=((np.log((2.0-0.0)/(Surf_roughness*0.1))*np.log((2.0-0.0)/(Surf_roughness)))/(k_vk*1.5**2))*((1-5*(-9.82*dT*(2.0-0.0))/((273.15+Temp_inst)*1.5**2))**(-0.75))
     rah_pm_act[rah_pm_act<25]=25
 
-    # calculate reference evaporation.
-    ETref_24, Lhv = Calc_Ref_ET(Surface_temp,sl_es_24,Rn_ref,air_dens,esat_24,eact_24,rah_grass,Psychro_c)
+    rah_pm_pot=((np.log((2.0-0.0)/(Surf_roughness*0.1))*np.log((2.0-0.0)/(Surf_roughness)))/(k_vk*1.5**2))*((1-5*(-9.82*4.0*(2.0-0.0))/((273.15+Temp_inst)*1.5**2))**(-0.75))
+    rah_pm_pot[rah_pm_pot<25]=25
+
+    # calculate reference potential evaporation.
+    ETpot_24,ETref_24,Lhv,rs_min=Calc_Ref_Pot_ET(LAI,temp_surface_sharpened,sl_es_24,Rn_ref,air_dens,esat_24,eact_24,rah_grass,Psychro_c,Rn_24,Refl_rad_water,rah_pm_pot,rl)
 
     # Instantaneous evapotranspiration
     LE_inst = rn_inst - g_inst - h_inst
 
     # Evaporative fraction
-    EF_inst = Calc_instantaneous_ET_fraction(LE_inst,rn_inst,g_inst)
+    EF_inst=Calc_instantaneous_ET_fraction(LE_inst,rn_inst,g_inst)
 
     # Daily Evaporation and advection factor
-    ETA_24, AF = Calc_ETact(esat_24,eact_24,EF_inst,Rn_24,Refl_rad_water,Lhv, Image_Type)
+    ETA_24, AF=Calc_ETact(esat_24,eact_24,EF_inst,Rn_24,Refl_rad_water,Lhv, Image_Type)
 
     # Correct ETA_24 based on slope (basal crop coefficient)
     #ETA_24 = Corr_ETact(ETA_24, ETpot_24, NDVI, slope)
 
     # Bulk surface resistance (s/m):
-    bulk_surf_resis_24 = Calc_Bulk_surface_resistance(sl_es_24, Rn_24, Refl_rad_water, air_dens, esat_24, eact_24, rah_pm_act, ETA_24, Lhv, Psychro_c)
+    bulk_surf_resis_24=Calc_Bulk_surface_resistance(sl_es_24,Rn_24,Refl_rad_water,air_dens,esat_24,eact_24,rah_pm_act,ETA_24,Lhv,Psychro_c)
 
     # crop factor
     kc = ETA_24 / ETref_24  # Crop factor
@@ -1370,6 +1377,34 @@ def Calc_instantaneous_ET_fraction(LE_inst,rn_inst,g_inst):
     return(EF_inst)
 
 #------------------------------------------------------------------------------
+def Calc_Ref_Pot_ET(LAI,Surface_temp,sl_es_24,Rn_ref,air_dens,esat_24,eact_24,rah_grass,Psychro_c,Rn_24,Refl_rad_water,rah_pm_pot,rl):
+    """
+    Function to calculate the reference potential evapotransporation and potential evaporation
+    """
+
+    # Effective leaf area index involved, see Allen et al. (2006):
+    LAI_eff = LAI / (0.3 * LAI + 1.2)
+    rs_min = rl / LAI_eff  # Min (Bulk) surface resistance (s/m)
+    # Latent heat of vaporization (J/kg):
+    Lhv = (2.501 - 2.361e-3 * (Surface_temp - 273.15)) * 1E6
+
+    # Reference evapotranspiration- grass
+    # Penman-Monteith of the combination equation (eq 3 FAO 56) (J/s/m2)
+    LET_ref_24 = ((sl_es_24 * Rn_ref + air_dens * 1004 * (esat_24 - eact_24) /
+                  rah_grass) / (sl_es_24 + Psychro_c * (1 + 70.0/rah_grass)))
+    # Reference evaportranspiration (mm/d):
+    ETref_24 = LET_ref_24 / (Lhv * 1000) * 86400000
+
+    # Potential evapotranspiration
+    # Penman-Monteith of the combination equation (eq 3 FAO 56) (J/s/m2)
+    LETpot_24 = ((sl_es_24 * (Rn_24 - Refl_rad_water) + air_dens * 1004 *
+               (esat_24 - eact_24)/rah_pm_pot) / (sl_es_24 + Psychro_c * (1 + rs_min/rah_pm_pot)))
+    # Potential evaportranspiration (mm/d)
+    ETpot_24 = LETpot_24 / (Lhv * 1000) * 86400000
+    ETpot_24[ETpot_24 > 15.0] = 15.0
+    return(ETpot_24,ETref_24,Lhv,rs_min)
+
+#------------------------------------------------------------------------------
 def Calc_Rn_Ref(shape_lsc,water_mask,Rn_24,Ra_mountain_24,Transm_24,Rnl_24_FAO,Wind_24):
     """
     Function to calculate the net solar radiation
@@ -1388,8 +1423,9 @@ def Calc_Rn_Ref(shape_lsc,water_mask,Rn_24,Ra_mountain_24,Transm_24,Rnl_24_FAO,W
     Rn_ref = Ra_mountain_24 * Transm_24 * (1 - 0.23) - Rnl_24_FAO  # Rnl avg(fao-slob)?
     return(Rn_ref, Refl_rad_water,rah_grass)
 
+
 #------------------------------------------------------------------------------
-def Iterate_Friction_Velocity(k_vk,u_200,Surf_roughness,g_inst,rn_inst, ts_dem, ts_dem_hot, ts_dem_cold,air_dens, Surface_temp,L,psi,psi_m200,psi_m200_stable,QC_Map, hot_pixels, cold_pixels, slope, max_EF):
+def Iterate_Friction_Velocity(k_vk,u_200,Surf_roughness,g_inst,rn_inst, ts_dem, ts_dem_hot, ts_dem_cold,air_dens, Surface_temp,L,psi,psi_m200,psi_m200_stable,QC_Map, hot_pixels, slope, dT_cold_factor):
     """
     Function to correct the windspeed and aerodynamic resistance for the iterative process the output can be used as the new input for this model
     """
@@ -1406,10 +1442,10 @@ def Iterate_Friction_Velocity(k_vk,u_200,Surf_roughness,g_inst,rn_inst, ts_dem, 
     rah_corr_unstable = (np.log(2.0/0.01) - psi) / (k_vk * ustar_corr)     # unstable
     rah_corr_stable = (np.log(2.0/0.01) - 0.0) / (k_vk * ustar_corr)       # stable
     rah_corr = np.where(L > 0.0, rah_corr_stable, rah_corr_unstable)
-    L_corr, psi_m200_corr_stable, psi_corr, psi_m200_corr,h,dT = sensible_heat(
+    L_corr, psi_m200_corr_stable, psi_corr, psi_m200_corr,h,dT, slope_dt, offset_dt,dT_ini = sensible_heat(
             rah_corr, ustar_corr, rn_inst, g_inst, ts_dem, ts_dem_hot, ts_dem_cold,
-            air_dens, Surface_temp, k_vk,QC_Map, hot_pixels, cold_pixels, slope, max_EF)
-    return(L_corr,psi_corr,psi_m200_corr,psi_m200_corr_stable,h,dT)
+            air_dens, Surface_temp, k_vk,QC_Map, hot_pixels, slope, dT_cold_factor)
+    return(L_corr,psi_corr,psi_m200_corr,psi_m200_corr_stable,h,dT,slope_dt, offset_dt,dT_ini,rah_corr)
 
 #------------------------------------------------------------------------------
 def Calc_Wind_Speed_Friction(h_obst,Wind_inst,zx,LAI,NDVI,Surf_albedo,water_mask,surf_roughness_equation_used):
@@ -1595,7 +1631,7 @@ def Calc_Hot_Pixels(ts_dem, QC_Map, water_mask, NDVI, NDVIhot_low, NDVIhot_high,
     return(ts_dem_hot_mean, hot_pixels)
 
 #------------------------------------------------------------------------------
-def Calc_Cold_Pixels(ts_dem, water_mask, QC_Map, ts_dem_cold_veg_mean, cold_pixels_vegetation):
+def Calc_Cold_Pixels(ts_dem, water_mask, QC_Map, ts_dem_cold_veg_mean, dT_cold_factor):
     """
     Function to calculates the the cold pixels based on the surface temperature
     """
@@ -1613,27 +1649,27 @@ def Calc_Cold_Pixels(ts_dem, water_mask, QC_Map, ts_dem_cold_veg_mean, cold_pixe
     # If average temperature is below zero or nan than use the vegetation cold pixel
     if ts_dem_cold_mean <= 0.0:
         ts_dem_cold_mean = ts_dem_cold_veg_mean
-        cold_pixels[~np.isnan(cold_pixels_vegetation)] = cold_pixels_vegetation[~np.isnan(cold_pixels_vegetation)]
     if np.isnan(ts_dem_cold_mean) == True:
         ts_dem_cold_mean = ts_dem_cold_veg_mean
-        cold_pixels[~np.isnan(cold_pixels_vegetation)] = cold_pixels_vegetation[~np.isnan(cold_pixels_vegetation)]      
     else:
         ts_dem_cold_mean = ts_dem_cold_mean
 
     if ts_dem_cold_mean > ts_dem_cold_veg_mean:
         ts_dem_cold_mean = ts_dem_cold_veg_mean
-        cold_pixels[~np.isnan(cold_pixels_vegetation)] = cold_pixels_vegetation[~np.isnan(cold_pixels_vegetation)]     
     if np.isnan(ts_dem_cold_mean):
         ts_dem_cold_mean = ts_dem_cold_veg_mean
-        cold_pixels[~np.isnan(cold_pixels_vegetation)] = cold_pixels_vegetation[~np.isnan(cold_pixels_vegetation)]
-        
+
+    # If cold vegetation is used, than dt cold is 0.15 of the dt_hot_factor
+    if (ts_dem_cold_mean == ts_dem_cold_veg_mean and dT_cold_factor==0.0):
+        dT_cold_factor = 0.15  
+
     print('cold water: min=%0.3f (Kelvin)' %ts_dem_cold_min , ', sd= %0.3f (Kelvin)' % ts_dem_cold_std, \
            ', mean= %0.3f (Kelvin)' % ts_dem_cold_mean)
-    
-    return(ts_dem_cold_mean, cold_pixels)
+    print('dT_cold_factor =%0.3f (-)' %dT_cold_factor) 
+    return(ts_dem_cold_mean,cold_pixels, dT_cold_factor)
 
 #------------------------------------------------------------------------------
-def Calc_Cold_Pixels_Veg(NDVI, NDVI_max, NDVI_std, QC_Map, ts_dem):
+def Calc_Cold_Pixels_Veg(NDVI, NDVI_max, NDVI_std, QC_Map, ts_dem, Image_Type):
     """
     Function to calculates the the cold pixels based on vegetation
     """
@@ -1647,8 +1683,7 @@ def Calc_Cold_Pixels_Veg(NDVI, NDVI_max, NDVI_std, QC_Map, ts_dem):
     print('cold vegetation: min=%0.3f (Kelvin)' %ts_dem_cold_min_veg , ', sd= %0.3f (Kelvin)' % ts_dem_cold_std_veg, \
 				', mean= %0.3f (Kelvin)' % ts_dem_cold_mean_veg)
     
-    return(ts_dem_cold_mean_veg, cold_pixels_vegetation)
-
+    return(ts_dem_cold_mean_veg)
 
 #------------------------------------------------------------------------------
 def Calc_Meteo(Rs_24,eact_24,Temp_24,Surf_albedo,dr,tir_emis,Surface_temp,water_mask,NDVI,Transm_24,SB_const,lw_in_inst,Rs_inst):
@@ -2216,9 +2251,8 @@ def DEM_lat_lon(DEM_fileName):
 
     return(lat, lon)
 
-
 #------------------------------------------------------------------------------
-def reproject_dataset(dataset, pixel_spacing, UTM_Zone, fit_extend = False):
+def reproject_dataset(dataset, pixel_spacing, UTM_Zone):
     """
     A sample function to reproject and resample a GDAL dataset from within
     Python. The idea here is to reproject from one system to another, as well
@@ -2272,7 +2306,7 @@ def reproject_dataset(dataset, pixel_spacing, UTM_Zone, fit_extend = False):
     inProj = Proj(init='epsg:%d' %epsg_from)
     outProj = Proj(init='epsg:%d' %epsg_to)
 
-    # Remove a part of image
+
     nrow_skip = round((0.06*y_size)/2)
     ncol_skip = round((0.06*x_size)/2)
 
@@ -2286,12 +2320,6 @@ def reproject_dataset(dataset, pixel_spacing, UTM_Zone, fit_extend = False):
     # Now, we create an in-memory raster
     mem_drv = gdal.GetDriverByName('MEM')
 
-    if fit_extend == True:       
-        ulx = np.ceil(ulx/pixel_spacing) * pixel_spacing + 0.5 * pixel_spacing
-        uly = np.floor(uly/pixel_spacing) * pixel_spacing - 0.5 * pixel_spacing
-        lrx = np.floor(lrx/pixel_spacing) * pixel_spacing - 0.5 * pixel_spacing
-        lry = np.ceil(lry/pixel_spacing) * pixel_spacing + 0.5 * pixel_spacing
-        
     # The size of the raster is given the new projection and pixel spacing
     # Using the values we calculated above. Also, setting it to store one band
     # and to use Float32 data type.
@@ -2385,8 +2413,7 @@ def save_GeoTiff_proy(src_dataset, dst_dataset_array, dst_fileName, shape_lsc, n
 
     """
     dst_dataset_array	= np.float_(dst_dataset_array)
-    dst_dataset_array[dst_dataset_array<-9999] = -9999
-    dst_dataset_array[np.isnan(dst_dataset_array)] = -9999
+    dst_dataset_array[dst_dataset_array<-9999] = np.nan
     geotransform = src_dataset.GetGeoTransform()
     spatialreference = src_dataset.GetProjection()
 
@@ -2404,7 +2431,6 @@ def save_GeoTiff_proy(src_dataset, dst_dataset_array, dst_fileName, shape_lsc, n
     dst_dataset.GetRasterBand(1).SetNoDataValue(-9999)
     dst_dataset.GetRasterBand(1).WriteArray(dst_dataset_array)
     dst_dataset = None
-    dst_dataset_array[dst_dataset_array==-9999] = np.nan
 
 #------------------------------------------------------------------------------
 def w_time(GMT,lon_proy, DOY):
@@ -2437,21 +2463,25 @@ def w_time(GMT,lon_proy, DOY):
 
 #------------------------------------------------------------------------------
 def sensible_heat(rah, ustar, rn_inst, g_inst, ts_dem, ts_dem_hot, ts_dem_cold,
-                  air_dens, Surf_temp, k_vk, QC_Map, hot_pixels, cold_pixels, slope, max_EF):
+                  air_dens, Surf_temp, k_vk, QC_Map, hot_pixels, slope, dT_cold_factor=0):
     """
     This function computes the instantaneous sensible heat given the
     instantaneous net radiation, ground heat flux, and other parameters.
 
     """
     # Near surface temperature difference (dT):
-    dT_hot = (rn_inst - g_inst) * rah / (air_dens * 1004) 
-    dT_cold = (1-max_EF) * (rn_inst - g_inst) * rah / (air_dens * 1004) 
+    dT_ini = (rn_inst - g_inst) * rah / (air_dens * 1004) # (1-max_EF) * (rn_inst - g_inst) * rah / (air_dens * 1004)
+    dT_hot = np.copy(dT_ini)
+
+    #dT_hot_fileName = os.path.join(output_folder, 'Output_cloud_masked','test.tif')
+    #save_GeoTiff_proy(dest, dT_hot, dT_hot_fileName,shape, nband=1)
 
     # dT for hot pixels - hot, (dry) agricultural fields with no green veget.:
     dT_hot[ts_dem <= (ts_dem_hot - 0.5)] = np.nan
     dT_hot[QC_Map == 1] = np.nan
     dT_hot[dT_hot == 0] = np.nan
     if np.all(np.isnan(dT_hot)) == True:
+       dT_hot = np.copy(dT_ini)
        ts_dem_hot = np.nanpercentile(hot_pixels, 99.5)
        dT_hot[ts_dem <= (ts_dem_hot - 0.5)] = np.nan
        dT_hot[dT_hot == 0] = np.nan
@@ -2459,25 +2489,10 @@ def sensible_heat(rah, ustar, rn_inst, g_inst, ts_dem, ts_dem_hot, ts_dem_cold,
     dT_hot=np.float32(dT_hot)
     dT_hot[slope > 10]=np.nan
 
-    # dT for cold pixels - cold, (wet) agricultural fields with green veget.:
-    dT_cold[np.logical_or(ts_dem >= ts_dem_cold + 0.5, np.isnan(cold_pixels))] = np.nan
-    dT_cold[slope > 10]=np.nan
-    
     dT_hot_mean = np.nanmean(dT_hot)
-    dT_cold_mean = np.nanmean(dT_cold)
-    
+
     # Compute slope and offset of linear relationship dT = b + a * Ts
-    slope_dt = (dT_hot_mean - dT_cold_mean)/(ts_dem_hot - ts_dem_cold) 
-    print('Slope dT ', slope_dt)
-    '''
-    # Adjust slope if needed
-    if slope_dt < 0.8:
-        slope_dt = 0.8
-        print('Slope dT is adjusted to minimum ', slope_dt)
-    if slope_dt > 1.2:
-        slope_dt = 1.2
-        print('Slope dT is adjusted to maximum ', slope_dt)     
-    '''
+    slope_dt = (dT_hot_mean - dT_cold_factor * dT_hot_mean)/ (ts_dem_hot - ts_dem_cold)  # EThot = 0.0
     offset_dt = dT_hot_mean - slope_dt * ts_dem_hot
 
     dT = offset_dt + slope_dt * ts_dem
@@ -2506,7 +2521,7 @@ def sensible_heat(rah, ustar, rn_inst, g_inst, ts_dem, ts_dem_hot, ts_dem_cold,
     print('Sensible Heat ', np.nanmean(h))
     print('dT' , np.nanmean(dT))
 
-    return L_MO, psi_200_stable, psi_h, psi_m200, h, dT
+    return L_MO, psi_200_stable, psi_h, psi_m200, h, dT, slope_dt, offset_dt,dT_ini
 
 #------------------------------------------------------------------------------
 def gap_filling(data, NoDataValue, method = 1):
@@ -2848,50 +2863,3 @@ def resize_array_example(Array_in, Array_example, method=1):
         print('only 2D or 3D dimensions are supported')
 
     return(Array_out)
-    
-#------------------------------------------------------------------------------
-def Calc_Ref_ET(Surface_temp,sl_es_24,Rn_ref,air_dens,esat_24,eact_24,rah_grass,Psychro_c):
-    """
-    Function to calculate the reference evapotransporation
-    """
-    # Latent heat of vaporization (J/kg):
-    Lhv = (2.501 - 2.361e-3 * (Surface_temp - 273.15)) * 1E6
-
-    # Reference evapotranspiration- grass
-    # Penman-Monteith of the combination equation (eq 3 FAO 56) (J/s/m2)
-    LET_ref_24 = ((sl_es_24 * Rn_ref + air_dens * 1004 * (esat_24 - eact_24) /
-                  rah_grass) / (sl_es_24 + Psychro_c * (1 + 70.0/rah_grass)))
-    # Reference evaportranspiration (mm/d):
-    ETref_24 = LET_ref_24 / (Lhv * 1000) * 86400000
-
-    return(ETref_24, Lhv)
-    
-#------------------------------------------------------------------------------
-def Calc_Pot_ET(LAI, Surface_temp, sl_es_24, air_dens, esat_24, eact_24, Psychro_c, Rn_24, Refl_rad_water, rah_pm_pot, rl):
-    """
-    Function to calculate the potential evapotransporation
-    """
-
-    # Effective leaf area index involved, see Allen et al. (2006):
-    LAI_eff = LAI / (0.3 * LAI + 1.2)
-    rs_min = rl / LAI_eff  # Min (Bulk) surface resistance (s/m)
-    # Latent heat of vaporization (J/kg):
-    Lhv = (2.501 - 2.361e-3 * (Surface_temp - 273.15)) * 1E6
-
-    # Potential evapotranspiration
-    # Penman-Monteith of the combination equation (eq 3 FAO 56) (J/s/m2)
-    LETpot_24 = ((sl_es_24 * (Rn_24 - Refl_rad_water) + air_dens * 1004 *
-               (esat_24 - eact_24)/rah_pm_pot) / (sl_es_24 + Psychro_c * (1 + rs_min/rah_pm_pot)))
-    # Potential evaportranspiration (mm/d)
-    ETpot_24 = LETpot_24 / (Lhv * 1000) * 86400000
-    ETpot_24[ETpot_24 > 15.0] = 15.0
-    
-    return(ETpot_24, Lhv, rs_min)
-
-
-
-
-
-
-
-#------------------------------------------------------------------------------

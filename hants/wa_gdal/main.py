@@ -26,7 +26,7 @@ from joblib import Parallel, delayed
 def run_HANTS(rasters_path_inp, name_format,
               start_date, end_date, latlim, lonlim, cellsize, nc_path,
               nb, nf, HiLo, low, high, fet, dod, delta, Scaling_factor = 0.001,
-              epsg=4326, cores=1):
+              epsg=4326, cores=1, tile_size  = 100):
     '''
     This function runs the python implementation of the HANTS algorithm. It
     takes a folder with geotiffs raster data as an input, creates a netcdf
@@ -34,7 +34,7 @@ def run_HANTS(rasters_path_inp, name_format,
     '''
     nc_paths = create_netcdf(rasters_path_inp, name_format, start_date, end_date,
                   latlim, lonlim, cellsize, nc_path, Scaling_factor,
-                  epsg)
+                  epsg, tile_size)
     args = [nb, nf, HiLo, low, high, fet, dod, delta, Scaling_factor]
     print('\tApply HANTS on tiles...')
     results = Parallel(n_jobs=cores)(delayed(HANTS_netcdf)(nc_path, args)
@@ -48,7 +48,7 @@ def run_HANTS(rasters_path_inp, name_format,
 
 def create_netcdf(rasters_path, name_format, start_date, end_date,
                   latlim, lonlim, cellsize, nc_path, Scaling_factor,
-                  epsg=4326):
+                  epsg=4326, tile_size  = 100):
     '''
     This function creates a netcdf file from a folder with geotiffs rasters to
     be used to run HANTS.
@@ -71,15 +71,14 @@ def create_netcdf(rasters_path, name_format, start_date, end_date,
     ras_ls = glob.glob('*.tif')
 
     # Create tile parts
-    if (lat_n > 200 or lon_n > 200):
+    if (lat_n > 2 * tile_size or lon_n > 2 * tile_size):
 
-        lat_n_amount = np.maximum(1,int(np.floor(lat_n/100)))
-        lon_n_amount = np.maximum(1,int(np.floor(lon_n/100)))
-        nc_path_part_names = nc_path.split('.')
+        lat_n_amount = np.maximum(1,int(np.floor(lat_n/tile_size)))
+        lon_n_amount = np.maximum(1,int(np.floor(lon_n/tile_size)))
         nc_path_tiles = []
         for lat_n_one in range(0, lat_n_amount):
             for lon_n_one in range(0, lon_n_amount):
-                nc_path_tile = ''.join(nc_path_part_names[0] + "_h%03d_v%03d.nc" %(lon_n_one, lat_n_one))
+                nc_path_tile = ''.join(os.path.splitext(nc_path)[0] + "_h%03d_v%03d.nc" %(lon_n_one, lat_n_one))
                 nc_path_tiles = np.append(nc_path_tiles, nc_path_tile)
 
     else:
@@ -94,9 +93,9 @@ def create_netcdf(rasters_path, name_format, start_date, end_date,
         if lat_n_amount > 1:
             lat_part = int(nc_path_tile[-6:-3])
             
-            lat_start = lat_part * 100
+            lat_start = lat_part * tile_size
             if int(lat_part) is not int(lat_n_amount-1):
-                lat_end = int((lat_part + 1) * 100)
+                lat_end = int((lat_part + 1) * tile_size)
             else:
                 lat_end = int(lat_n)
         else:
@@ -106,9 +105,9 @@ def create_netcdf(rasters_path, name_format, start_date, end_date,
         if lon_n_amount > 1:
             lon_part = int(nc_path_tile[-11:-8])
 
-            lon_start = int(lon_part * 100)
+            lon_start = int(lon_part * tile_size)
             if int(lon_part) is not int(lon_n_amount-1):
-                lon_end = int((lon_part + 1) * 100)
+                lon_end = int((lon_part + 1) * tile_size)
             else:
                 lon_end = int(lon_n)
         else:

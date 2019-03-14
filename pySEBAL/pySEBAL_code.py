@@ -1050,12 +1050,11 @@ def main(number, inputExcel):
     # FUNCTIONS
     #-------------------------------------------------------------------------
 
-def Create_Buffer(Data_In):
+def Create_Buffer(Data_In, Buffer_area = 2):
 
    '''
    This function creates a 3D array which is used to apply the moving window
    '''
-   Buffer_area = 2 # A block of 2 times Buffer_area + 1 will be 1 if there is the pixel in the middle is 1
    Data_Out=np.empty((len(Data_In),len(Data_In[1])))
    Data_Out[:,:] = Data_In
    for ypixel in range(0,Buffer_area + 1):
@@ -2289,13 +2288,15 @@ def reproject_dataset_example(dataset, dataset_example, method = 1):
     dest1.SetProjection(osng.ExportToWkt())
 
     # Perform the projection/resampling
-    if method == 1:
+    if method is 1:
         gdal.ReprojectImage(g_in, dest1, wgs84.ExportToWkt(), osng.ExportToWkt(), gdal.GRA_NearestNeighbour)
-    if method == 2:
+    if method is 2:
+        gdal.ReprojectImage(g_in, dest1, wgs84.ExportToWkt(), osng.ExportToWkt(), gdal.GRA_Bilinear)
+    if method is 3:
+        gdal.ReprojectImage(g_in, dest1, wgs84.ExportToWkt(), osng.ExportToWkt(), gdal.GRA_Lanczos)
+    if method is 4:
         gdal.ReprojectImage(g_in, dest1, wgs84.ExportToWkt(), osng.ExportToWkt(), gdal.GRA_Average)
-    if method == 3:
-        gdal.ReprojectImage(g_in, dest1, wgs84.ExportToWkt(), osng.ExportToWkt(), gdal.GRA_Cubic)
-
+        
     return(dest1, ulx, lry, lrx, uly, epsg_to)
 
 #------------------------------------------------------------------------------

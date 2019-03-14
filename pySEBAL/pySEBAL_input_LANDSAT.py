@@ -302,7 +302,7 @@ def Get_LS_Para_Thermal(workbook, number, Example_fileName, year, month, day, wa
             src_FileName_BQA = os.path.join(input_folder, '%s_BQA.TIF' %Name_Landsat_Image)
             ls_data_BQA = Open_landsat(src_FileName_BQA, Example_fileName)
             if Landsat_nr == 8:
-                Cloud_Treshold = 3000  #2720
+                Cloud_Treshold = 3700  #2720
             if Landsat_nr == 5 or Landsat_nr == 7:
                 Cloud_Treshold = 700
             QC_mask_Cloud = np.copy(ls_data_BQA)

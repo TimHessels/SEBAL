@@ -1,7 +1,0 @@
-<RCC>
-  <qresource prefix="Logo">
-    <file>logoSEBAL-resize.png</file>
-    <file>tree.png</file>
-    <file>ihe-delft-logo-resize.jpg</file>
-  </qresource>
-</RCC>

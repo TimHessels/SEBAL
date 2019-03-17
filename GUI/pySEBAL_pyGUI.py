@@ -83,7 +83,7 @@ class Ui_pySEBALGUI(object):
         self.ButtonBox_OKCancel_SEBAL.setToolTip(_translate("pySEBALGUI", "<html><head/><body><p>Push OK to run SEBAL or Cancel to close Tab</p></body></html>"))
         self.pushButton.setText(_translate("pySEBALGUI", "Browse"))
         self.lineEdit_2.setText(_translate("pySEBALGUI", "End Row:"))
-        self.label.setText(_translate("pySEBALGUI", "<html><head/><body><p><img src=\":/Logo/ihe-delft-logo-resize.jpg\"/></p></body></html>"))
+        self.label.setText(_translate("pySEBALGUI", "<html><head/><body><p><img src=\":/Logo/logoSEBAL-resize.png\"/></p></body></html>"))
         self.label_2.setText(_translate("pySEBALGUI", "<html><head/><body><p><img src=\":/Logo/logoSEBAL-resize.png\"/></p></body></html>"))
         self.groupBox.setTitle(_translate("pySEBALGUI", "Select pySEBAL input Excel file"))
         self.groupBox_2.setTitle(_translate("pySEBALGUI", "Run Excel rows:"))

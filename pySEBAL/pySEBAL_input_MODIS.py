@@ -6,6 +6,7 @@ Created on Thu Jun 21 14:27:54 2018
 """
 import os
 import gdal
+import osr
 import numpy as np
 
 def Get_Time_Info(workbook, number):
@@ -240,26 +241,35 @@ def Get_MODIS_Para_Thermal(workbook, number, Example_fileName, year, month, day,
 
 #------------------------------------------------------------------------------
 def reproject_MODIS(input_name, output_name, epsg_to):
-
     '''
-    Reproject the merged data file
+    Reproject the merged data file by using gdalwarp. The input projection must be the MODIS projection.
+    The output projection can be defined by the user.
 
     Keywords arguments:
-    output_folder -- 'C:/file/to/path/'
+    input_name -- 'C:/file/to/path/file.tif'
+        string that defines the input tiff file
+    epsg_to -- integer
+        The EPSG code of the output dataset
     '''
-    import SEBAL.pySEBAL.pySEBAL_code as SEBAL
 
-    # Get environmental variable
-    SEBAL_env_paths = os.environ["SEBAL"].split(';')
-    GDAL_env_path = SEBAL_env_paths[0]
-    GDALWARP_PATH = os.path.join(GDAL_env_path, 'gdalwarp.exe')
-
-    split_input = input_name.split('hdf":')
-    inputname = '%shdf":"%s"' %(split_input[0],split_input[1])
-
-    # find path to the executable
-    fullCmd = ' '.join(["%s" %(GDALWARP_PATH), '-overwrite -s_srs "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 +b=6371007.181 +units=m +no_defs"', '-t_srs EPSG:%s -of GTiff' %(epsg_to), inputname, output_name])
-    SEBAL.Run_command_window(fullCmd)
+    src_ds = gdal.Open(input_name)
+    
+    # Define target SRS
+    dst_srs = osr.SpatialReference()
+    dst_srs.ImportFromEPSG(int(epsg_to))
+    dst_wkt = dst_srs.ExportToWkt()
+    
+    error_threshold = 0.125  # error threshold --> use same value as in gdalwarp
+    resampling = gdal.GRA_NearestNeighbour
+    
+    # Call AutoCreateWarpedVRT() to fetch default values for target raster dimensions and geotransform
+    tmp_ds = gdal.AutoCreateWarpedVRT( src_ds,
+                                   None, # src_wkt : left to default value --> will use the one from source
+                                   dst_wkt,
+                                   resampling,
+                                   error_threshold )
+    dst_ds = gdal.GetDriverByName('GTiff').CreateCopy(output_name, tmp_ds)
+    dst_ds = None 
 
     return()
 

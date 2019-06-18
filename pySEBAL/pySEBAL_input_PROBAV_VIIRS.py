@@ -28,10 +28,13 @@ def Get_Time_Info(workbook, number):
     # UTM Zone of the end results
     UTM_Zone = float(ws['G%d' %number].value)
 
-	 # Get time from the VIIRS dataset name (IMPORTANT TO KEEP THE TEMPLATE OF THE VIIRS NAME CORRECT example: VIIRS_SVIO5_npp_20160601_1103128_e1108532_b23808_c20160601170854581426_noaa_ops.tif npp_viirs_i05_20150701_124752_wgs84_fit.tif)
-    Total_Day_VIIRS = Name_VIIRS_Image_TB.split('_')[3]
-    Total_Time_VIIRS = Name_VIIRS_Image_TB.split('_')[4]
-
+	# Get time from the VIIRS dataset name (IMPORTANT TO KEEP THE TEMPLATE OF THE VIIRS NAME CORRECT example: VIIRS_SVIO5_npp_20160601_1103128_e1108532_b23808_c20160601170854581426_noaa_ops.tif npp_viirs_i05_20150701_124752_wgs84_fit.tif)
+    #Total_Day_VIIRS = Name_VIIRS_Image_TB.split('_')[3]
+    #Total_Time_VIIRS = Name_VIIRS_Image_TB.split('_')[4]
+    # "NPP_VIAES_L1.A2018001.0854.001.2018009150807.pssgrpgs_000501315598.BrightnessTemperature_I5-BrightnessTemperature_I5.tif"
+    Total_Day_VIIRS = datetime.datetime.strptime(Name_VIIRS_Image_TB.split('.')[1][1:], "%Y%j").strftime("%Y%m%d")
+    Total_Time_VIIRS = Name_VIIRS_Image_TB.split('.')[2]
+    
     # Get the information out of the VIIRS name
     year = int(Total_Day_VIIRS[:4])
     month = int(Total_Day_VIIRS[4:6])
@@ -153,6 +156,7 @@ def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, month, day, pa
 
         else:
             # Calculate surface albedo based on PROBA-V
+            # Surf_albedo = 0.429 * spectral_reflectance_PROBAV[:, :, 1] + 0.333 * spectral_reflectance_PROBAV[:, :, 2] + 0.133 * spectral_reflectance_PROBAV[:, :, 3] + 0.105 * spectral_reflectance_PROBAV[:, :, 4]  # WAPOR          
             Surf_albedo = 0.219 * spectral_reflectance_PROBAV[:, :, 1] + 0.361 * spectral_reflectance_PROBAV[:, :, 2] + 0.379 * spectral_reflectance_PROBAV[:, :, 3] + 0.041 * spectral_reflectance_PROBAV[:, :, 4]
             # Set limit surface albedo
             Surf_albedo = np.minimum(Surf_albedo, 0.6)
@@ -161,7 +165,7 @@ def Get_PROBAV_Para_Veg(workbook, number, Example_fileName, year, month, day, pa
           print("Please check the Albedo input path")
 
     # calculate vegetation properties
-    FPAR,tir_emis,Nitrogen,vegt_cover,LAI,b10_emissivity=SEBAL.Calc_vegt_para(NDVI, water_mask_temp, shape_lsc)
+    FPAR,tir_emis,Nitrogen,vegt_cover,LAI,b10_emissivity=SEBAL.Calc_vegt_para(NDVI, water_mask_temp)
 
     # create quality map
     QC_Map = np.zeros(NDVI.shape)

@@ -162,7 +162,7 @@ def Get_MODIS_Para_Veg(workbook, number, Example_fileName, year, month, day, pat
          assert "Please check the PROBA-V path, was not able to create Albedo"
 
     # Calculate the Fpar, TIR, Nitrogen, Vegetation Cover, LAI and b10_emissivity based on PROBA-V
-    FPAR, tir_emis, Nitrogen, vegt_cover, LAI, b10_emissivity = SEBAL.Calc_vegt_para(NDVI, water_mask_temp, shape_lsc)
+    FPAR, tir_emis, Nitrogen, vegt_cover, LAI, b10_emissivity = SEBAL.Calc_vegt_para(NDVI, water_mask_temp)
 
     print('Average NDVI = %s' %np.nanmean(NDVI))
     print('Average Surface Albedo = %s' %np.nanmean(Surf_albedo))

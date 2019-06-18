@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-pySEBAL_3.4.4
+pySEBAL_3.4.2
 @author: Tim Hessels, Wim Bastiaanssen, Patricia Trambauer,Mohamed Faouzi Smiej, Ahmed Er-Raji, and Jonna van Opstal
 """
 import sys
@@ -52,7 +52,7 @@ def main(number, inputExcel):
     print('.................................................................. ')
     print('......................SEBAL Model running ........................ ')
     print('.................................................................. ')
-    print('pySEBAL version 3.4.4 Github')
+    print('pySEBAL version 3.4.2 Github')
     print('General Input:')
     print('input_folder = %s' %str(input_folder))
     print('output_folder = %s' %str(output_folder))
@@ -234,7 +234,7 @@ def main(number, inputExcel):
         year, DOY, hour_GTM, minutes_GTM, UTM_Zone = input_USER.Get_Time_Info(wb, number)
 
         # define the kind of sensor and resolution of the sensor
-        pixel_spacing = int(10)
+        pixel_spacing = int(30)
         sensor1 = 'User'
         sensor2 = 'User'
         res1 = '10m'
@@ -669,7 +669,7 @@ def main(number, inputExcel):
         Surface_temp, cloud_mask_temp, Thermal_Sharpening_not_needed = input_LS.Get_LS_Para_Thermal(wb, number, proyDEM_fileName, year, month, day,  water_mask_temp, b10_emissivity, Temp_inst, Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed, DEM_fileName, UTM_Zone, eact_inst, QC_Map)
 
     if Image_Type == 2:
-        Surface_temp, cloud_mask_temp, Thermal_Sharpening_not_needed = input_PROBAV_VIIRS.Get_VIIRS_Para_Thermal(wb, number, proyDEM_fileName, year, month, day, water_mask_temp, b10_emissivity, Temp_inst,  Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed)
+        Surface_temp, cloud_mask_temp , Thermal_Sharpening_not_needed = input_PROBAV_VIIRS.Get_VIIRS_Para_Thermal(wb, number, proyDEM_fileName, year, month, day, water_mask_temp, b10_emissivity, Temp_inst,  Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed)
 
     if Image_Type == 3:
         Surface_temp, cloud_mask_temp, Thermal_Sharpening_not_needed = input_MODIS.Get_MODIS_Para_Thermal(wb, number, proyDEM_fileName, year, month, day, water_mask_temp, b10_emissivity, Temp_inst,  Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed, epsg_to)
@@ -1748,8 +1748,8 @@ def Calc_Meteo(Rs_24,eact_24,Temp_24,Surf_albedo,dr,tir_emis,Surface_temp,water_
     Rn_24_FAO = Rns_24 - Rnl_24_FAO          # FAO equation
     Rn_24_Slob = Rns_24 - Rnl_24_Slob       # Slob equation
     #Rn_24 = (Rn_24_FAO + Rn_24_Slob) / 2  # Average
-    Rn_24 = np.minimum(Rn_24_FAO, Rn_24_Slob)
-    #Rn_24 = Rn_24_FAO
+    #Rn_24 = np.minimum(Rn_24_FAO, Rn_24_Slob)
+    Rn_24 = Rn_24_FAO
     
     print('Mean 24H Net Radiation (Slob) = %0.3f (W/m2)' % np.nanmean(Rn_24_Slob))
     print('Mean 24H Net Radiation (FAO) = %0.3f (W/m2)' % np.nanmean(Rn_24_FAO))
@@ -1852,7 +1852,7 @@ def Get_Thermal(lambda_b10,Rp,Temp_inst,tau_sky,TIR_Emissivity,k1,k2):
 
     return(Temp_TOA)
 #------------------------------------------------------------------------------
-def Calc_vegt_para(NDVI,water_mask_temp,shape_lsc):
+def Calc_vegt_para(NDVI,water_mask_temp):
     """
     Calculates the Fraction of PAR, Thermal infrared emissivity, Nitrogen, Vegetation Cover, LAI, b10_emissivity
     """
@@ -1879,15 +1879,16 @@ def Calc_vegt_para(NDVI,water_mask_temp,shape_lsc):
     vegt_cover[NDVI > 0.8] = 0.99
 
     # Leaf Area Index (LAI)
-    LAI_1 = np.log(-(vegt_cover - 1)) / -0.45
-    LAI_1[LAI_1 > 8] = 8.0
-    LAI_2 = (9.519 * np.power(NDVI, 3) + 0.104 * np.power(NDVI, 2) +
-             1.236 * NDVI - 0.257)
+    #LAI_1 = np.log(-(vegt_cover - 1)) / -0.45
+    #LAI_1[LAI_1 > 8] = 8.0
+    #LAI_2 = (9.519 * np.power(NDVI, 3) + 0.104 * np.power(NDVI, 2) +
+    #          1.236 * NDVI - 0.257)
 
-    LAI = (LAI_1 + LAI_2) / 2.0  # Average LAI
+    #LAI = (LAI_1 + LAI_2) / 2.0  # Average LAI
+    # new function LAI (mail 03/01/2019 Wim)
+    LAI = 42.339 * NDVI**4 - 53.379 * NDVI**3 + 25.179 * NDVI**2 - 1.2482 * NDVI - 0.2319
     LAI[LAI < 0.001] = 0.001
 
-    b10_emissivity = np.zeros((shape_lsc[1], shape_lsc[0]))
     b10_emissivity = np.where(LAI <= 3.0, 0.95 + 0.01 * LAI, 0.98)
     b10_emissivity[water_mask_temp != 0.0] = 1.0
 

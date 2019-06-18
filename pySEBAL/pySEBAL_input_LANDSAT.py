@@ -214,13 +214,13 @@ def Get_LS_Para_Veg(workbook, number, Example_fileName, year, month, day, path_r
         else:
 
             # use the Landsat reflectance to calculate the surface albede, NDVI
-            Surf_albedo = SEBAL.Calc_albedo(Reflect, path_radiance, Apparent_atmosf_transm)
+            Surf_albedo = SEBAL.Calc_albedo(Reflect, path_radiance, Apparent_atmosf_transm, Landsat_nr)
 
     except:
           assert "Please check the Albedo input path"
 
     # calculate vegetation properties
-    FPAR,tir_emis,Nitrogen,vegt_cover,LAI,b10_emissivity=SEBAL.Calc_vegt_para(NDVI, water_mask_temp,shape_lsc)
+    FPAR,tir_emis,Nitrogen,vegt_cover,LAI,b10_emissivity=SEBAL.Calc_vegt_para(NDVI, water_mask_temp)
 
     print('Average NDVI = %s' %np.nanmean(NDVI))
     print('Average Surface Albedo = %s' %np.nanmean(Surf_albedo))

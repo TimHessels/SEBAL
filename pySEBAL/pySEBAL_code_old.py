@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-pySEBAL_3.4.4
+pySEBAL_3.4.2
 @author: Tim Hessels, Wim Bastiaanssen, Patricia Trambauer,Mohamed Faouzi Smiej, Ahmed Er-Raji, and Jonna van Opstal
 """
 import sys
@@ -52,7 +52,7 @@ def main(number, inputExcel):
     print('.................................................................. ')
     print('......................SEBAL Model running ........................ ')
     print('.................................................................. ')
-    print('pySEBAL version 3.4.4 Github')
+    print('pySEBAL version 3.4.2 Github')
     print('General Input:')
     print('input_folder = %s' %str(input_folder))
     print('output_folder = %s' %str(output_folder))
@@ -151,10 +151,10 @@ def main(number, inputExcel):
     print(' ')
 
     # Data for Module 14 - Biomass
-    Th = 35.0                        # Upper limit of stomatal activity
-    Kt = 23.0                        # Optimum conductance temperature (°C), range: [17 - 19]
-    Tl = 0.0                         # Lower limit of stomatal activity
-    rl = 130                         # Bulk stomatal resistance of the well-illuminated leaf (s/m)
+    Th = 45.0                        # Upper limit of stomatal activity
+    Kt = 26.0                        # Optimum conductance temperature (°C), range: [17 - 19]
+    Tl = 5.0                         # Lower limit of stomatal activity
+    rl = 100                         # Bulk stomatal resistance of the well-illuminated leaf (s/m)
     Light_use_extinction_factor = 0.5    # Light use extinction factor for Bear's Law
     print('General Constants: Biomass (Part 14)')
     print('Upper limit of stomatal activity = %s' %Th)
@@ -234,7 +234,7 @@ def main(number, inputExcel):
         year, DOY, hour_GTM, minutes_GTM, UTM_Zone = input_USER.Get_Time_Info(wb, number)
 
         # define the kind of sensor and resolution of the sensor
-        pixel_spacing = int(10)
+        pixel_spacing = int(30)
         sensor1 = 'User'
         sensor2 = 'User'
         res1 = '10m'
@@ -308,9 +308,9 @@ def main(number, inputExcel):
 
     # output energy balance
     Rn_24_fileName = os.path.join(output_folder, 'Output_energy_balance', '%s_%s_Rn_24_%s_%s%02d%02d.tif' %(sensor1, sensor2, res2, year, month, day))
-    rn_inst_fileName = os.path.join(output_folder, 'Output_energy_balance', '%s_%s_Rn_inst_%s%02d%02d_%s.tif' %(sensor1, sensor2, res2, year, month, day))
-    rnFAO_24_fileName = os.path.join(output_folder, 'Output_energy_balance', '%s_%s_RnFAO_24_%s%02d%02d_%s.tif' %(sensor1, sensor2, res2, year, month, day))
-    rnSlob_24_fileName = os.path.join(output_folder, 'Output_energy_balance', '%s_%s_RnSlob_24_%s%02d%02d_%s.tif' %(sensor1, sensor2, res2, year, month, day))
+    rn_inst_fileName = os.path.join(output_folder, 'Output_energy_balance', '%s_%s_Rn_inst_%s_%s%02d%02d.tif' %(sensor1, sensor2, res2, year, month, day))
+    rnFAO_24_fileName = os.path.join(output_folder, 'Output_energy_balance', '%s_%s_RnFAO_24_%s_%s%02d%02d.tif' %(sensor1, sensor2, res2, year, month, day))
+    rnSlob_24_fileName = os.path.join(output_folder, 'Output_energy_balance', '%s_%s_RnSlob_24_%s_%s%02d%02d.tif' %(sensor1, sensor2, res2, year, month, day))
     g_inst_fileName = os.path.join(output_folder, 'Output_energy_balance', '%s_%s_G_inst_%s_%s%02d%02d.tif' %(sensor1, sensor2, res2, year, month, day))
     h_inst_fileName = os.path.join(output_folder, 'Output_energy_balance', '%s_%s_h_inst_%s_%s%02d%02d.tif' %(sensor1, sensor2, res2, year, month, day))
     EF_inst_fileName = os.path.join(output_folder, 'Output_energy_balance', '%s_%s_EFinst_%s_%s%02d%02d.tif' %(sensor1, sensor2, res2, year, month, day))
@@ -447,28 +447,28 @@ def main(number, inputExcel):
     ws = wb['Meteo_Input']
 
     # 6a) Instantanious Temperature
-    Output_filename_temp_inst = os.path.join(output_folder, 'Output_radiation_balance', 'Temp_24_input.tif')
+    Output_filename_temp_inst = os.path.join(output_folder, 'Output_radiation_balance', 'Temp_inst_input_%s%02d%02d.tif' %(year, month, day))
     Temp_inst, Temp_inst_source = Open_constant_or_spatial_map(ws, "B%d" %number, Output_filename_temp_inst, proyDEM_fileName)
     print('_____________________Instantanious Temperature______________________')
     print('Source of instantanious temperature = %s' %str(Temp_inst_source))
     print('Average instantanious temperature = %s Celcius\n' %float(np.nanmean(Temp_inst)))
 
     # 6b) Daily Temperature
-    Output_filename_temp_24 = os.path.join(output_folder, 'Output_radiation_balance', 'Temp_24_input.tif')
+    Output_filename_temp_24 = os.path.join(output_folder, 'Output_radiation_balance', 'Temp_24_input_%s%02d%02d.tif' %(year, month, day))
     Temp_24, Temp_24_source = Open_constant_or_spatial_map(ws, "C%d" %number, Output_filename_temp_24, proyDEM_fileName)
     print('__________________________Daily Temperature_________________________')
     print('Source of 24H temperature = %s' %str(Temp_24_source))
     print('Average 24H temperature = %s Celcius\n' %float(np.nanmean(Temp_24)))
 
     # 6c) Instantanious Relative Humidity
-    Output_filename_RH_inst = os.path.join(output_folder, 'Output_radiation_balance', 'RH_inst_input.tif')
+    Output_filename_RH_inst = os.path.join(output_folder, 'Output_radiation_balance', 'RH_inst_input_%s%02d%02d.tif' %(year, month, day))
     RH_inst, RH_inst_source = Open_constant_or_spatial_map(ws, "D%d" %number, Output_filename_RH_inst, proyDEM_fileName)
     print('________________Instantanious Relative Humidity_____________________')
     print('Source of instantanious relative humidity = %s' %str(RH_inst_source))
     print('Average instantanious relative humidity = %s Procent\n' %float(np.nanmean(RH_inst)))
 
     # 6d) Daily Relative Humidity
-    Output_filename_RH_24 = os.path.join(output_folder, 'Output_radiation_balance', 'RH_24_input.tif')
+    Output_filename_RH_24 = os.path.join(output_folder, 'Output_radiation_balance', 'RH_24_input_%s%02d%02d.tif' %(year, month, day))
     RH_24, RH_24_source = Open_constant_or_spatial_map(ws, "E%d" %number, Output_filename_RH_24, proyDEM_fileName)
     print('____________________Daily Relative Humidity_________________________')
     print('Source of 24H relative humidity = %s' %str(RH_24_source))
@@ -480,14 +480,14 @@ def main(number, inputExcel):
     print('Height at which wind speed is measured = %s (m)\n' %(zx))
 
     # 6e) Instantanious wind speed
-    Output_filename_wind_inst = os.path.join(output_folder, 'Output_radiation_balance', 'Wind_inst_input.tif')
+    Output_filename_wind_inst = os.path.join(output_folder, 'Output_radiation_balance', 'Wind_inst_input_%s%02d%02d.tif' %(year, month, day))
     Wind_inst, Wind_inst_source = Open_constant_or_spatial_map(ws, "G%d" %number, Output_filename_wind_inst, proyDEM_fileName)
     print('_____________________Instantanious Wind Speed_______________________')
     print('Source of instantanious wind speed = %s' %str(Wind_inst_source))
     print('Average instantanious wind speed = %s m/s\n' %float(np.nanmean(Wind_inst)))
 
     # 6f) Daily wind speed
-    Output_filename_wind_24 = os.path.join(output_folder, 'Output_radiation_balance', 'Wind_24_input.tif')
+    Output_filename_wind_24 = os.path.join(output_folder, 'Output_radiation_balance', 'Wind_24_input_%s%02d%02d.tif' %(year, month, day))
     Wind_24, Wind_24_source = Open_constant_or_spatial_map(ws, "H%d" %number, Output_filename_wind_24, proyDEM_fileName)
     print('__________________________Daily Wind Speed__________________________')
     print('Source of 24H wind speed = %s' %str(Wind_24_source))
@@ -502,14 +502,14 @@ def main(number, inputExcel):
     print('Method for instantanious radiation (1=Rs_inst, 2=Transm_inst) = %s\n' %(Method_Radiation_inst))
 
     if Method_Radiation_inst == 1:
-        Output_filename_radiation_inst = os.path.join(output_folder, 'Output_radiation_balance', 'Rs_inst_input.tif')
+        Output_filename_radiation_inst = os.path.join(output_folder, 'Output_radiation_balance', 'Rs_inst_input_%s%02d%02d.tif' %(year, month, day))
         Rs_inst, Rs_inst_source = Open_constant_or_spatial_map(ws, "J%d" %number, Output_filename_radiation_inst, proyDEM_fileName)
         print('____________________Instantanious Radiation_________________________')
         print('Source of instantanious solar radiation = %s' %str(Rs_inst_source))
         print('Average instantanious solar radiation = %s W/m2\n' %float(np.nanmean(Rs_inst)))
 
     if Method_Radiation_inst == 2:
-        Output_filename_transm_inst = os.path.join(output_folder, 'Output_radiation_balance', 'Transm_inst_input.tif')
+        Output_filename_transm_inst = os.path.join(output_folder, 'Output_radiation_balance', 'Transm_inst_input_%s%02d%02d.tif' %(year, month, day))
         Transm_inst, Transm_inst_source = Open_constant_or_spatial_map(ws, "K%d" %number, Output_filename_transm_inst, proyDEM_fileName)
         print('___________________Instantanious Transmissivity_____________________')
         print('Source of instantanious transmissivity = %s' %str(Transm_inst_source))
@@ -524,21 +524,21 @@ def main(number, inputExcel):
     print('Method for daily radiation (1=Rs_24, 2=Transm_24) = %s\n' %(Method_Radiation_24))
 
     if Method_Radiation_24 == 1:
-        Output_filename_radiation_24 = os.path.join(output_folder, 'Output_radiation_balance', 'Rs_24_input.tif')
+        Output_filename_radiation_24 = os.path.join(output_folder, 'Output_radiation_balance', 'Rs_24_input_%s%02d%02d.tif' %(year, month, day))
         Rs_24, Rs_24_source = Open_constant_or_spatial_map(ws, "M%d" %number, Output_filename_radiation_24, proyDEM_fileName)
         print('____________________________Daily Radiation_________________________')
         print('Source of daily solar radiation = %s' %str(Rs_24_source))
         print('Average 24H solar radiation = %s W/m2\n' %float(np.nanmean(Rs_24)))
 
     if Method_Radiation_24 == 2:
-        Output_filename_transm_24 = os.path.join(output_folder, 'Output_radiation_balance', 'Transm_24_input.tif')
+        Output_filename_transm_24 = os.path.join(output_folder, 'Output_radiation_balance', 'Transm_24_input_%s%02d%02d.tif' %(year, month, day))
         Transm_24, Transm_24_source = Open_constant_or_spatial_map(ws, "N%d" %number, Output_filename_transm_24, proyDEM_fileName)
         print('___________________________Daily Transmissivity_____________________')
         print('Source of 24H transmissivity = %s' %str(Transm_24_source))
         print('Average 24H transmissivity = %s\n' %float(np.nanmean(Transm_24)))
 
     # 6i) Obstacle height
-    Output_filename_h_obst = os.path.join(output_folder, 'Output_soil_moisture', 'Obst_h_input.tif')
+    Output_filename_h_obst = os.path.join(output_folder, 'Output_soil_moisture', 'Obst_h_input_%s%02d%02d.tif' %(year, month, day))
     h_obst, h_obst_source = Open_constant_or_spatial_map(ws, "O%d" %number, Output_filename_h_obst, proyDEM_fileName)
     print('___________________________Obstacle Height__________________________')
     print('Source of obstacle height = %s' %str(h_obst_source))
@@ -548,56 +548,56 @@ def main(number, inputExcel):
     ws = wb['Soil_Input']
 
     # 6j) Saturated Soil Moisture Content topsoil
-    Output_filename_Theta_sat_top = os.path.join(output_folder, 'Output_soil_moisture', 'Theta_sat_top_input.tif')
+    Output_filename_Theta_sat_top = os.path.join(output_folder, 'Output_soil_moisture', 'Theta_sat_top_input_%s%02d%02d.tif' %(year, month, day))
     Theta_sat_top, Theta_sat_top_source = Open_constant_or_spatial_map(ws, "B%d" %number, Output_filename_Theta_sat_top, proyDEM_fileName)
     print('________________Saturated Soil Moisture Content Topsoil_____________')
     print('Source of the saturated soil moisture content topsoil = %s' %str(Theta_sat_top_source))
     print('Average saturated soil moisture content topsoil = %s\n' %float(np.nanmean(Theta_sat_top)))
 
     # 6k) Saturated Soil Moisture Content subsoil
-    Output_filename_Theta_sat_sub = os.path.join(output_folder, 'Output_soil_moisture', 'Theta_sat_sub_input.tif')
+    Output_filename_Theta_sat_sub = os.path.join(output_folder, 'Output_soil_moisture', 'Theta_sat_sub_input_%s%02d%02d.tif' %(year, month, day))
     Theta_sat_sub, Theta_sat_sub_source = Open_constant_or_spatial_map(ws, "C%d" %number, Output_filename_Theta_sat_sub, proyDEM_fileName)
     print('________________Saturated Soil Moisture Content Subsoil_____________')
     print('Source of the saturated soil moisture content subsoil = %s' %str(Theta_sat_sub_source))
     print('Average saturated soil moisture content subsoil = %s\n' %float(np.nanmean(Theta_sat_sub)))
 
     # 6l) Residual Soil Moisture Content topsoil
-    Output_filename_Theta_res_top = os.path.join(output_folder, 'Output_soil_moisture', 'Theta_res_top_input.tif')
+    Output_filename_Theta_res_top = os.path.join(output_folder, 'Output_soil_moisture', 'Theta_res_top_input_%s%02d%02d.tif' %(year, month, day))
     Theta_res_top, Theta_res_top_source = Open_constant_or_spatial_map(ws, "D%d" %number, Output_filename_Theta_res_top, proyDEM_fileName)
     print('_________________Residual Soil Moisture Content Topsoil_____________')
     print('Source of the residual soil moisture content topsoil = %s' %str(Theta_res_top_source))
     print('Average residual soil moisture content topsoil = %s\n' %float(np.nanmean(Theta_res_top)))
 
     # 6m) Residual Soil Moisture Content subsoil
-    Output_filename_Theta_res_sub = os.path.join(output_folder, 'Output_soil_moisture', 'Theta_res_sub_input.tif')
+    Output_filename_Theta_res_sub = os.path.join(output_folder, 'Output_soil_moisture', 'Theta_res_sub_input_%s%02d%02d.tif' %(year, month, day))
     Theta_res_sub, Theta_res_sub_source = Open_constant_or_spatial_map(ws, "E%d" %number, Output_filename_Theta_res_sub, proyDEM_fileName)
     print('_________________Residual Soil Moisture Content Subsoil_____________')
     print('Source of the residual soil moisture content subsoil = %s' %str(Theta_res_sub_source))
     print('Average residual soil moisture content subsoil = %s\n' %float(np.nanmean(Theta_res_sub)))
 
     # 6n) Soil Moisture Wilting point
-    Output_filename_soil_wilting_point = os.path.join(output_folder, 'Output_soil_moisture', 'Soil_moisture_wilting_point_input.tif')
+    Output_filename_soil_wilting_point = os.path.join(output_folder, 'Output_soil_moisture', 'Soil_moisture_wilting_point_input_%s%02d%02d.tif' %(year, month, day))
     Soil_moisture_wilting_point, Soil_moisture_wilting_point_source = Open_constant_or_spatial_map(ws, "G%d" %number, Output_filename_soil_wilting_point, proyDEM_fileName)
     print('_______________________Soil Moisture Wilting point__________________')
     print('Source of the soil moisture wilting point = %s' %str(Soil_moisture_wilting_point_source))
     print('Average soil moisture wilting point = %s\n' %float(np.nanmean(Soil_moisture_wilting_point)))
 
     # 6o) Fraction Field Capacity
-    Output_filename_Field_Capacity = os.path.join(output_folder, 'Output_soil_moisture', 'Fraction_Field_Capacity_input.tif')
+    Output_filename_Field_Capacity = os.path.join(output_folder, 'Output_soil_moisture', 'Fraction_Field_Capacity_input_%s%02d%02d.tif' %(year, month, day))
     Field_Capacity, Field_Capacity_source = Open_constant_or_spatial_map(ws, "F%d" %number, Output_filename_Field_Capacity, proyDEM_fileName)
     print('_________________________Fraction Field Capacity____________________')
     print('Source of the fraction field capacity = %s' %str(Field_Capacity_source))
     print('Average fraction field capacity = %s\n' %float(np.nanmean(Field_Capacity)))
 
     # 6p) Light Use Efficiency
-    Output_filename_LUEmax = os.path.join(output_folder, 'Output_soil_moisture', 'LUEmax_input.tif')
+    Output_filename_LUEmax = os.path.join(output_folder, 'Output_soil_moisture', 'LUEmax_input_%s%02d%02d.tif' %(year, month, day))
     LUEmax, LUEmax_source = Open_constant_or_spatial_map(ws, "I%d" %number, Output_filename_LUEmax, proyDEM_fileName)
     print('______________________Maximum Light Use Efficiency__________________')
     print('Source of the Maximum Light Use Efficiency = %s' %str(LUEmax_source))
     print('Average Maximum Light Use Efficiency = %s\n' %float(np.nanmean(LUEmax)))
 
     # 6p) Depletion Factor
-    Output_filename_depl_factor = os.path.join(output_folder, 'Output_soil_moisture', 'depl_factor_input.tif')
+    Output_filename_depl_factor = os.path.join(output_folder, 'Output_soil_moisture', 'depl_factor_input_%s%02d%02d.tif' %(year, month, day))
     depl_factor, depl_factor_source = Open_constant_or_spatial_map(ws, "H%d" %number, Output_filename_depl_factor, proyDEM_fileName)
     print('______________________________Depletion Factor______________________')
     print('Source of the Depletion Factor = %s' %str(depl_factor_source))
@@ -607,7 +607,7 @@ def main(number, inputExcel):
     
     # 6q) QC temp
     try:
-        Output_filename_QC_temp = os.path.join(output_folder, 'Output_radiation_balance', 'QC_temp_input.tif')
+        Output_filename_QC_temp = os.path.join(output_folder, 'Output_radiation_balance', 'QC_temp_input_%s%02d%02d.tif' %(year, month, day))
         QC_temp, QC_temp_source = Open_constant_or_spatial_map(ws, "I%d" %number, Output_filename_QC_temp, proyDEM_fileName, 1)
         print('______________________________QC Temp_________________________')
         print('Source of the QC temp = %s' %str(QC_temp_source))
@@ -669,7 +669,7 @@ def main(number, inputExcel):
         Surface_temp, cloud_mask_temp, Thermal_Sharpening_not_needed = input_LS.Get_LS_Para_Thermal(wb, number, proyDEM_fileName, year, month, day,  water_mask_temp, b10_emissivity, Temp_inst, Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed, DEM_fileName, UTM_Zone, eact_inst, QC_Map)
 
     if Image_Type == 2:
-        Surface_temp, cloud_mask_temp, Thermal_Sharpening_not_needed = input_PROBAV_VIIRS.Get_VIIRS_Para_Thermal(wb, number, proyDEM_fileName, year, month, day, water_mask_temp, b10_emissivity, Temp_inst,  Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed)
+        Surface_temp, cloud_mask_temp , Thermal_Sharpening_not_needed = input_PROBAV_VIIRS.Get_VIIRS_Para_Thermal(wb, number, proyDEM_fileName, year, month, day, water_mask_temp, b10_emissivity, Temp_inst,  Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed)
 
     if Image_Type == 3:
         Surface_temp, cloud_mask_temp, Thermal_Sharpening_not_needed = input_MODIS.Get_MODIS_Para_Thermal(wb, number, proyDEM_fileName, year, month, day, water_mask_temp, b10_emissivity, Temp_inst,  Rp, tau_sky, surf_temp_offset, Thermal_Sharpening_not_needed, epsg_to)
@@ -846,7 +846,7 @@ def main(number, inputExcel):
     print('---------------------------------------------------------')
 
     # Atmospheric pressure for altitude:
-    Pair = 101.3 * np.power((293 - 0.0065 * DEM_resh) / 293, 5.26)
+    Pair = 101.3 * np.power((293 - 0.0065 * DEM_resh) / 293, 5.26)  #!!! Pair kan ik ook uitlezen uit GLDAS of andere meteo
 
     # Psychrometric constant (kPa / °C), FAO 56, eq 8.:
     Psychro_c = 0.665E-3 * Pair
@@ -1001,11 +1001,11 @@ def main(number, inputExcel):
     save_GeoTiff_proy(lsc, Surf_roughness, surf_rough_fileName, shape_lsc, nband=1)
 
     # calculate reference net radiation
-    Rn_ref, Refl_rad_water, rah_grass=Calc_Rn_Ref(shape_lsc,water_mask,Rn_24,Ra_mountain_24,Transm_24,Rnl_24_FAO,Wind_24)
+    Rn_ref, Refl_rad_water, rah_grass=Calc_Rn_Ref(water_mask,Rn_24,Ra_mountain_24,Transm_24,Rnl_24_FAO,Wind_24)
 
     # Computation of surface roughness for momentum transport
     k_vk = 0.41      # Von Karman constant
-    rah_pm_pot=((np.log((2.0-0.0)/(Surf_roughness*0.1))*np.log((2.0-0.0)/(Surf_roughness)))/(k_vk*1.5**2))*((1-5*(-9.82*4.0*(2.0-0.0))/((273.15+Temp_inst)*1.5**2))**(-0.75))
+    rah_pm_pot=((np.log((2.0-0.0)/(Surf_roughness*0.1))*np.log((2.0-0.0)/(Surf_roughness)))/(k_vk*1.5**2))*((1-5*(-9.82*4.0*(2.0-0.0))/((273.15+Temp_inst)*1.5**2))**(-0.75)) #!!! moet dit echt Temp_inst zijn, en is het echt 1.5**2 of is het (..*1.5)**2
     rah_pm_pot[rah_pm_pot<25]=25
     
     # calculate  potential evaporation.
@@ -1287,10 +1287,11 @@ def Calc_Soil_Moisture(ETA_24,EF_inst,QC_Map, water_mask,vegt_cover,Theta_sat_to
 
     # Critical value under which plants get stressed:
     SM_stress_trigger = Field_Capacity - p_factor * (Field_Capacity - Soil_moisture_wilting_point)
-    EF_inst[EF_inst >= 1.0] = 0.999
+    EF_inst_SM = np.copy(EF_inst)
+    EF_inst_SM[EF_inst_SM >= 1.0] = 0.999
 
     # Total soil water content (cm3/cm3):
-    total_soil_moisture = Theta_sat_sub * np.exp((EF_inst - 1.0) / 0.421)   # asce paper Scott et al. 2003
+    total_soil_moisture = Theta_sat_sub * np.exp((EF_inst_SM - 1.0) / 0.421)   # asce paper Scott et al. 2003
     total_soil_moisture[np.logical_or(water_mask == 1.0,QC_Map == 1.0)] = 1.0  # In water and snow is 1
     total_soil_moisture[QC_Map == 1.0] = np.nan  # Where clouds no data
 
@@ -1383,7 +1384,6 @@ def Calc_ETact(esat_24, eact_24, EF_inst, Rn_24, Refl_rad_water, Lhv, Image_Type
         AF = np.ones(Rn_24.shape)
     else:
         AF = 1 + 0.985 * (np.exp((esat_24 - eact_24) * 0.08) - 1.0) * EF_inst
-        
     # Daily evapotranspiration:
     ETA_24 = EF_inst * AF * (Rn_24 - Refl_rad_water) / (Lhv * 1000) * 86400000
     ETA_24=ETA_24.clip(0,15.0)
@@ -1415,7 +1415,7 @@ def Calc_instantaneous_ET_fraction(LE_inst,rn_inst,g_inst):
     return(EF_inst)
 
 #------------------------------------------------------------------------------
-def Calc_Rn_Ref(shape_lsc,water_mask,Rn_24,Ra_mountain_24,Transm_24,Rnl_24_FAO,Wind_24):
+def Calc_Rn_Ref(water_mask,Rn_24,Ra_mountain_24,Transm_24,Rnl_24_FAO,Wind_24):
     """
     Function to calculate the net solar radiation
     """
@@ -1423,7 +1423,6 @@ def Calc_Rn_Ref(shape_lsc,water_mask,Rn_24,Ra_mountain_24,Transm_24,Rnl_24_FAO,W
     G24_water = 0.1  # G24 ratio for water - reflectivity?
 
     # Reflected radiation at water surface: ??
-    Refl_rad_water = np.zeros((shape_lsc[1], shape_lsc[0]))
     Refl_rad_water = np.where(water_mask != 0.0, G24_water * Rn_24, 0.0)
 
     # Aerodynamic resistance (s/m) for grass surface:
@@ -1733,6 +1732,7 @@ def Calc_Meteo(Rs_24,eact_24,Temp_24,Surf_albedo,dr,tir_emis,Surface_temp,water_
     # Net shortwave radiation (W/m2):
     Rns_24 = Rs_24 * (1 - Surf_albedo)
 
+
     # Net outgoing longwave radiation (W/m2):
     Rnl_24_FAO = (SB_const * np.power(Temp_24 + 273.15, 4) * (0.34-0.14 *
                   np.power(eact_24, 0.5)) * (1.35 * np.minimum(Transm_24 / 0.75, 1) - 0.35))
@@ -1748,8 +1748,8 @@ def Calc_Meteo(Rs_24,eact_24,Temp_24,Surf_albedo,dr,tir_emis,Surface_temp,water_
     Rn_24_FAO = Rns_24 - Rnl_24_FAO          # FAO equation
     Rn_24_Slob = Rns_24 - Rnl_24_Slob       # Slob equation
     #Rn_24 = (Rn_24_FAO + Rn_24_Slob) / 2  # Average
-    Rn_24 = np.minimum(Rn_24_FAO, Rn_24_Slob)
-    #Rn_24 = Rn_24_FAO
+    #Rn_24 = np.minimum(Rn_24_FAO, Rn_24_Slob)
+    Rn_24 = Rn_24_FAO
     
     print('Mean 24H Net Radiation (Slob) = %0.3f (W/m2)' % np.nanmean(Rn_24_Slob))
     print('Mean 24H Net Radiation (FAO) = %0.3f (W/m2)' % np.nanmean(Rn_24_FAO))
@@ -1852,7 +1852,7 @@ def Get_Thermal(lambda_b10,Rp,Temp_inst,tau_sky,TIR_Emissivity,k1,k2):
 
     return(Temp_TOA)
 #------------------------------------------------------------------------------
-def Calc_vegt_para(NDVI,water_mask_temp,shape_lsc):
+def Calc_vegt_para(NDVI,water_mask_temp):
     """
     Calculates the Fraction of PAR, Thermal infrared emissivity, Nitrogen, Vegetation Cover, LAI, b10_emissivity
     """
@@ -1879,15 +1879,16 @@ def Calc_vegt_para(NDVI,water_mask_temp,shape_lsc):
     vegt_cover[NDVI > 0.8] = 0.99
 
     # Leaf Area Index (LAI)
-    LAI_1 = np.log(-(vegt_cover - 1)) / -0.45
-    LAI_1[LAI_1 > 8] = 8.0
-    LAI_2 = (9.519 * np.power(NDVI, 3) + 0.104 * np.power(NDVI, 2) +
-             1.236 * NDVI - 0.257)
+    #LAI_1 = np.log(-(vegt_cover - 1)) / -0.45
+    #LAI_1[LAI_1 > 8] = 8.0
+    #LAI_2 = (9.519 * np.power(NDVI, 3) + 0.104 * np.power(NDVI, 2) +
+    #          1.236 * NDVI - 0.257)
 
-    LAI = (LAI_1 + LAI_2) / 2.0  # Average LAI
+    #LAI = (LAI_1 + LAI_2) / 2.0  # Average LAI
+    # new function LAI (mail 03/01/2019 Wim)
+    LAI = 42.339 * NDVI**4 - 53.379 * NDVI**3 + 25.179 * NDVI**2 - 1.2482 * NDVI - 0.2319
     LAI[LAI < 0.001] = 0.001
 
-    b10_emissivity = np.zeros((shape_lsc[1], shape_lsc[0]))
     b10_emissivity = np.where(LAI <= 3.0, 0.95 + 0.01 * LAI, 0.98)
     b10_emissivity[water_mask_temp != 0.0] = 1.0
 

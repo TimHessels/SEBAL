@@ -18,8 +18,8 @@ from mpop.satellites import PolarFactory
 from datetime import datetime
 import glob
 
-input_folder = r"C:\Users\timhe\Documents\WaterSat\VIIRStest"
-output_folder = r"C:\Users\timhe\Documents\WaterSat\VIIRStest"
+input_folder = r"C:\Users\timhe\Documents\VIIRStest"
+output_folder = r"C:\Users\timhe\Documents\VIIRStest"
 os.chdir(input_folder)
 re = glob.glob("GITCO_*.h5")
 
@@ -91,7 +91,7 @@ for filename in re[:]:
             '''
 
             from mpop.projector import get_area_def
-            area_def = get_area_def("Nebraska")
+            area_def = get_area_def("Jain2")
             global_data.load(['I05'], time_interval=(start, end))
 
             # 1: 0.64 2: 0.87 3:1.61 4:3.74 5: 11.5

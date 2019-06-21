@@ -97,7 +97,8 @@ def Get_USER_Para_Veg(workbook, number, Example_fileName, year, month, day):
     # Extract the name of the surface albedo USER image from the excel file
     ws = workbook['USER_Input']
     src_FileName_Surf_albedo = r"%s" %str(ws['C%d' %number].value)                #surface albedo
-
+    
+    ws = workbook['Additional_Input']
     # Check Surface albedo
     try:
         if (ws['C%d' % number].value) is not None:

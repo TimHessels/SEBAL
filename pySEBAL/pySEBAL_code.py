@@ -400,10 +400,10 @@ def main(number, inputExcel):
     deg2rad, rad2deg, slope, aspect = Calc_Gradient(DEM_resh, pixel_spacing)
 
     # Saving the reprojected maps
-    save_GeoTiff_proy(lsc, slope, slope_fileName, shape_lsc, nband = 1)
-    save_GeoTiff_proy(lsc, aspect, aspect_fileName, shape_lsc, nband = 1)
-    save_GeoTiff_proy(lsc, lon_proy, lon_fileName_rep, shape_lsc, nband = 1)
-    save_GeoTiff_proy(lsc, lat_proy, lat_fileName_rep, shape_lsc, nband = 1)
+    #save_GeoTiff_proy(lsc, slope, slope_fileName, shape_lsc, nband = 1)
+    #save_GeoTiff_proy(lsc, aspect, aspect_fileName, shape_lsc, nband = 1)
+    #save_GeoTiff_proy(lsc, lon_proy, lon_fileName_rep, shape_lsc, nband = 1)
+    #save_GeoTiff_proy(lsc, lat_proy, lat_fileName_rep, shape_lsc, nband = 1)
     
     print('---------------------------------------------------------')
     print('---------------- Radiation (Part 2) ---------------------')
@@ -434,10 +434,10 @@ def main(number, inputExcel):
         Sun_elevation = 90 - (np.nanmean(cos_zn) * 180/np.pi)
 
     # Save files created in module 1
-    save_GeoTiff_proy(lsc, cos_zn, cos_zn_fileName, shape_lsc, nband = 1)
-    save_GeoTiff_proy(lsc, Ra_mountain_24, radiation_fileName, shape_lsc, nband = 1)
+    #save_GeoTiff_proy(lsc, cos_zn, cos_zn_fileName, shape_lsc, nband = 1)
+    #save_GeoTiff_proy(lsc, Ra_mountain_24, radiation_fileName, shape_lsc, nband = 1)
     save_GeoTiff_proy(lsc, Ra_inst, radiation_inst_fileName, shape_lsc, nband = 1 )
-    save_GeoTiff_proy(lsc, phi, phi_fileName, shape_lsc, nband = 1 )
+    #save_GeoTiff_proy(lsc, phi, phi_fileName, shape_lsc, nband = 1 )
 
     print('---------------------------------------------------------')
     print('------- Read Meteo and Soil inputs (Part 3) -------------')
@@ -447,7 +447,7 @@ def main(number, inputExcel):
     ws = wb['Meteo_Input']
 
     # 6a) Instantanious Temperature
-    Output_filename_temp_inst = os.path.join(output_folder, 'Output_radiation_balance', 'Temp_24_input.tif')
+    Output_filename_temp_inst = os.path.join(output_folder, 'Output_radiation_balance', 'Temp_inst_input.tif')
     Temp_inst, Temp_inst_source = Open_constant_or_spatial_map(ws, "B%d" %number, Output_filename_temp_inst, proyDEM_fileName)
     print('_____________________Instantanious Temperature______________________')
     print('Source of instantanious temperature = %s' %str(Temp_inst_source))
@@ -633,8 +633,8 @@ def main(number, inputExcel):
 
     # Save output maps
     save_GeoTiff_proy(lsc, water_mask_temp, water_mask_temp_fileName, shape_lsc, nband=1)
-    save_GeoTiff_proy(lsc, FPAR, fpar_fileName, shape_lsc, nband=1)
-    save_GeoTiff_proy(lsc, tir_emis, tir_emissivity_fileName, shape_lsc, nband=1)
+    #save_GeoTiff_proy(lsc, FPAR, fpar_fileName, shape_lsc, nband=1)
+    #save_GeoTiff_proy(lsc, tir_emis, tir_emissivity_fileName, shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, Nitrogen, nitrogen_fileName, shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, vegt_cover, veg_cover_fileName, shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, LAI, lai_fileName, shape_lsc, nband=1)
@@ -704,7 +704,10 @@ def main(number, inputExcel):
         if Image_Type == 3:
             pixel_spacing_upscale=1000
             Box = 9
-
+        if Image_Type == 4:
+            pixel_spacing_upscale=30
+            Box = 7
+            
         dest_up, ulx_dem_up, lry_dem_up, lrx_dem_up, uly_dem_up, epsg_to = reproject_dataset(
             DEM_fileName, pixel_spacing_upscale, UTM_Zone = UTM_Zone)
 
@@ -815,9 +818,9 @@ def main(number, inputExcel):
             QC_Map_fileName = os.path.join(output_folder, 'Output_cloud_masked', '%s_quality_mask_%s_%s%02d%02d.tif.tif' %(sensor1, res2, year, month, day))
 
             # Save output maps
-            save_GeoTiff_proy(lsc, cloud_mask, cloud_mask_fileName, shape_lsc, nband=1)
-            save_GeoTiff_proy(lsc, snow_mask, snow_mask_fileName, shape_lsc, nband=1)
-            save_GeoTiff_proy(lsc, shadow_mask, shadow_mask_fileName, shape_lsc, nband=1)
+            #save_GeoTiff_proy(lsc, cloud_mask, cloud_mask_fileName, shape_lsc, nband=1)
+            #save_GeoTiff_proy(lsc, snow_mask, snow_mask_fileName, shape_lsc, nband=1)
+            #save_GeoTiff_proy(lsc, shadow_mask, shadow_mask_fileName, shape_lsc, nband=1)
             save_GeoTiff_proy(lsc, QC_Map, QC_Map_fileName, shape_lsc, nband=1)
 
     except:
@@ -906,10 +909,10 @@ def main(number, inputExcel):
     save_GeoTiff_proy(lsc, Rn_24, Rn_24_fileName, shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, rn_inst, rn_inst_fileName, shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, g_inst, g_inst_fileName, shape_lsc, nband=1)
-    save_GeoTiff_proy(lsc, Pair, Atmos_pressure_fileName, shape_lsc, nband=1)
-    save_GeoTiff_proy(lsc, Psychro_c, Psychro_c_fileName, shape_lsc, nband=1)
-    save_GeoTiff_proy(lsc, Rn_24_FAO, rnFAO_24_fileName, shape_lsc, nband=1)
-    save_GeoTiff_proy(lsc, Rn_24_Slob, rnSlob_24_fileName, shape_lsc, nband=1)
+    #save_GeoTiff_proy(lsc, Pair, Atmos_pressure_fileName, shape_lsc, nband=1)
+    #save_GeoTiff_proy(lsc, Psychro_c, Psychro_c_fileName, shape_lsc, nband=1)
+    #save_GeoTiff_proy(lsc, Rn_24_FAO, rnFAO_24_fileName, shape_lsc, nband=1)
+    #save_GeoTiff_proy(lsc, Rn_24_Slob, rnSlob_24_fileName, shape_lsc, nband=1)
     
     # Correct Temperature based on air column above the ground
     ts_corr, air_dens = Correct_Surface_Temp_slope(temp_surface_sharpened, Pair, dr, Transm_corr, cos_zn, Sun_elevation, deg2rad, QC_Map)
@@ -918,7 +921,7 @@ def main(number, inputExcel):
     ts_dem = Correct_Surface_Temp_Lapse_Rate(ts_corr, DEM_resh, NDVI, slope, water_mask, QC_Map, QC_temp)
 
     # Save files
-    save_GeoTiff_proy(lsc, ts_corr, ts_corr_fileName, shape_lsc, nband=1)
+    #save_GeoTiff_proy(lsc, ts_corr, ts_corr_fileName, shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, ts_dem, ts_dem_fileName, shape_lsc, nband=1)
 
     print('---------------------------------------------------------')
@@ -998,7 +1001,7 @@ def main(number, inputExcel):
 
     # calculate windspeed at the blending height and the friction velocity by using the Raupach model or NDVI
     Surf_roughness,u_200,ustar_1=Calc_Wind_Speed_Friction(h_obst,Wind_inst,zx,LAI,NDVI,Surf_albedo,water_mask,surf_roughness_equation_used)
-    save_GeoTiff_proy(lsc, Surf_roughness, surf_rough_fileName, shape_lsc, nband=1)
+    #save_GeoTiff_proy(lsc, Surf_roughness, surf_rough_fileName, shape_lsc, nband=1)
 
     # calculate reference net radiation
     Rn_ref, Refl_rad_water, rah_grass=Calc_Rn_Ref(shape_lsc,water_mask,Rn_24,Ra_mountain_24,Transm_24,Rnl_24_FAO,Wind_24)
@@ -1073,10 +1076,10 @@ def main(number, inputExcel):
     save_GeoTiff_proy(lsc, ETA_24, ETA_24_fileName, shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, ETP_24, ETP_24_fileName, shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, ET_24_deficit, ET_24_deficit_fileName, shape_lsc, nband=1)
-    save_GeoTiff_proy(lsc, AF, AF_fileName, shape_lsc, nband=1)
+    #save_GeoTiff_proy(lsc, AF, AF_fileName, shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, kc, kc_fileName, shape_lsc, nband=1)
-    save_GeoTiff_proy(lsc, kc_max, kc_max_fileName, shape_lsc, nband=1)
-    save_GeoTiff_proy(lsc, bulk_surf_resis_24, bulk_surf_res_fileName, shape_lsc, nband=1)
+    #save_GeoTiff_proy(lsc, kc_max, kc_max_fileName, shape_lsc, nband=1)
+    #save_GeoTiff_proy(lsc, bulk_surf_resis_24, bulk_surf_res_fileName, shape_lsc, nband=1)
 
     print('---------------------------------------------------------')
     print('--------------- Soil Moisture (Part 13) -----------------')
@@ -1097,12 +1100,12 @@ def main(number, inputExcel):
     save_GeoTiff_proy(lsc, Eact_24, Eact24_fileName,shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, Tpot_24, Tpot24_fileName,shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, T24_deficit, T24_deficit_fileName,shape_lsc, nband=1)
-    save_GeoTiff_proy(lsc, total_soil_moisture, total_soil_moisture_fileName,shape_lsc, nband=1)
+    #save_GeoTiff_proy(lsc, total_soil_moisture, total_soil_moisture_fileName,shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, top_zone_moisture_final, top_soil_moisture_fileName,shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, root_zone_moisture_final, RZ_SM_fileName, shape_lsc,nband=1)
-    save_GeoTiff_proy(lsc, SM_stress_trigger, SM_stress_trigger_fileName,shape_lsc, nband=1)
+    #save_GeoTiff_proy(lsc, SM_stress_trigger, SM_stress_trigger_fileName,shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, moisture_stress_biomass, moisture_stress_biomass_fileName,shape_lsc, nband=1)
-    save_GeoTiff_proy(lsc, irrigation_needs, irrigation_needs_fileName,shape_lsc, nband=1)
+    #save_GeoTiff_proy(lsc, irrigation_needs, irrigation_needs_fileName,shape_lsc, nband=1)
 
     print('---------------------------------------------------------')
     print('------------------ Biomass (Part 14)---------------------')
@@ -1112,7 +1115,7 @@ def main(number, inputExcel):
     LUE,Biomass_prod,Biomass_wp,Biomass_deficit = Calc_Biomass_production(LAI,ETP_24,moisture_stress_biomass,ETA_24,Ra_mountain_24,Transm_24,FPAR,esat_24,eact_24,Th,Kt,Tl,Temp_24,LUEmax)
 
     # Save files
-    save_GeoTiff_proy(lsc, LUE, LUE_fileName,shape_lsc, nband=1)
+    #save_GeoTiff_proy(lsc, LUE, LUE_fileName,shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, Biomass_prod, Biomass_prod_fileName, shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, Biomass_wp, Biomass_wp_fileName, shape_lsc, nband=1)
     save_GeoTiff_proy(lsc, Biomass_deficit, Biomass_deficit_fileName,shape_lsc, nband=1)
@@ -1852,7 +1855,7 @@ def Get_Thermal(lambda_b10,Rp,Temp_inst,tau_sky,TIR_Emissivity,k1,k2):
 
     return(Temp_TOA)
 #------------------------------------------------------------------------------
-def Calc_vegt_para(NDVI,water_mask_temp,shape_lsc):
+def Calc_vegt_para(NDVI,water_mask_temp):
     """
     Calculates the Fraction of PAR, Thermal infrared emissivity, Nitrogen, Vegetation Cover, LAI, b10_emissivity
     """
@@ -1887,7 +1890,6 @@ def Calc_vegt_para(NDVI,water_mask_temp,shape_lsc):
     LAI = (LAI_1 + LAI_2) / 2.0  # Average LAI
     LAI[LAI < 0.001] = 0.001
 
-    b10_emissivity = np.zeros((shape_lsc[1], shape_lsc[0]))
     b10_emissivity = np.where(LAI <= 3.0, 0.95 + 0.01 * LAI, 0.98)
     b10_emissivity[water_mask_temp != 0.0] = 1.0
 
@@ -2852,14 +2854,40 @@ def Get_epsg(g, extension = 'tiff'):
     try:
         if extension == 'tiff':
             # Get info of the dataset that is used for transforming
-            g_proj = g.GetProjection()
+            try:
+                dest = gdal.Open(g)
+            except:
+                dest = g
+            g_proj = dest.GetProjection()
             Projection=g_proj.split('EPSG","')
+            epsg_to=int((str(Projection[-1]).split(']')[0])[0:-1])
+                
         if extension == 'GEOGCS':
             Projection = g
-        epsg_to=int((str(Projection[-1]).split(']')[0])[0:-1])
+            epsg_to=int((str(Projection).split('"EPSG","')[-1].split('"')[0:-1])[0])
+        if extension == '.shp':
+            projection_file = ''.join([os.path.splitext(g)[0],'.prj'])
+            Projection = open(projection_file, 'r').read()
+            srs = osr.SpatialReference()
+            srs.SetFromUserInput(Projection)
+            epsg_to = srs.GetAttrValue("AUTHORITY",1)
+
+            if epsg_to == None:
+                try:
+                    epsg_str = srs.GetAttrValue("PROJCS", 0)        
+                    zone = epsg_str.split("_")[-1][0:-1]
+                    NorS = str(epsg_str.split("_")[-1][-1])
+                    if NorS == "N":
+                        SN = 6
+                    if NorS == "S":
+                        SN = 7   
+                    epsg_to = int("32%s%02s" %(SN, zone))
+                except:       
+                    epsg_to=4326   
+                    
     except:
-       epsg_to=4326
-       #print('Was not able to get the projection, so WGS84 is assumed')
+        epsg_to=4326
+        #print 'Was not able to get the projection, so WGS84 is assumed'
     return(epsg_to)
 
 #------------------------------------------------------------------------------

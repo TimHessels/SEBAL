@@ -20,7 +20,11 @@ def Get_Time_Info(workbook, number):
     minutes_GTM = int(Time_GMT_String.split(":")[1])
     
     Date_string = "%s" %str(ws['I%d' %number].value)       
-    Date_stamp = datetime.datetime.strptime(Date_string, "%d/%m/%Y")
+    try:
+       Date_stamp = datetime.datetime.strptime(Date_string, "%d/%m/%Y")
+    except:
+        Date_stamp = datetime.datetime.strptime(Date_string, "%Y-%m-%d 00:00:00")       
+        
     year = Date_stamp.year
     DOY = int(Date_stamp.strftime("%j"))
     

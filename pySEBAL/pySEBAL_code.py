@@ -2,7 +2,7 @@
 
 """
 pySEBAL_3.4.4
-@author: Tim Hessels, Wim Bastiaanssen, Patricia Trambauer,Mohamed Faouzi Smiej, Ahmed Er-Raji, and Jonna van Opstal
+@author: Tim Hessels, Wim Bastiaanssen, Patricia Trambauer
 """
 import sys
 import os
@@ -130,7 +130,7 @@ def main(number, inputExcel):
 
     # Data for Module 10 - Calc Hot/Cold Pixel
     NDVIhot_low = 0.03               # Lower NDVI treshold for hot pixels
-    NDVIhot_high = 0.25              # Higher NDVI treshold for hot pixels
+    NDVIhot_high = 0.15              # Higher NDVI treshold for hot pixels
     print('General Constants: Calc Hot/Cold Pixel (Part 10)')
     print('Lower NDVI treshold for hot pixels = %s' %NDVIhot_low)
     print('Higher NDVI treshold for hot pixels = %s' %NDVIhot_high)
@@ -151,8 +151,8 @@ def main(number, inputExcel):
     print(' ')
 
     # Data for Module 14 - Biomass
-    Th = 35.0                        # Upper limit of stomatal activity
-    Kt = 23.0                        # Optimum conductance temperature (°C), range: [17 - 19]
+    Th = 50.0                        # Upper limit of stomatal activity
+    Kt = 25.0                        # Optimum conductance temperature (°C), range: [17 - 19]
     Tl = 0.0                         # Lower limit of stomatal activity
     rl = 130                         # Bulk stomatal resistance of the well-illuminated leaf (s/m)
     Light_use_extinction_factor = 0.5    # Light use extinction factor for Bear's Law
@@ -234,7 +234,7 @@ def main(number, inputExcel):
         year, DOY, hour_GTM, minutes_GTM, UTM_Zone = input_USER.Get_Time_Info(wb, number)
 
         # define the kind of sensor and resolution of the sensor
-        pixel_spacing = int(10)
+        pixel_spacing = int(30)
         sensor1 = 'User'
         sensor2 = 'User'
         res1 = '10m'
@@ -539,7 +539,7 @@ def main(number, inputExcel):
 
     # 6i) Obstacle height
     Output_filename_h_obst = os.path.join(output_folder, 'Output_soil_moisture', 'Obst_h_input.tif')
-    h_obst, h_obst_source = Open_constant_or_spatial_map(ws, "O%d" %number, Output_filename_h_obst, proyDEM_fileName)
+    h_obst, h_obst_source = Open_constant_or_spatial_map(ws, "O%d" %number, Output_filename_h_obst, proyDEM_fileName, 3, 0)
     print('___________________________Obstacle Height__________________________')
     print('Source of obstacle height = %s' %str(h_obst_source))
     print('Average obstacle height = %s meter\n' %float(np.nanmean(h_obst)))
@@ -947,7 +947,10 @@ def main(number, inputExcel):
         # Cold pixels water
         ts_dem_cold_mean, cold_pixels = Calc_Cold_Pixels(ts_dem, water_mask, QC_Map, ts_dem_cold_veg_mean, cold_pixels_vegetation)
         if np.isnan(ts_dem_cold_mean) == True:
-            ts_dem_cold_mean = Temp_inst
+            try:
+                ts_dem_cold_mean = np.nanmean(Temp_inst)
+            except:
+                ts_dem_cold_mean = Temp_inst                
             
         save_GeoTiff_proy(lsc, cold_pixels, cold_pixels_fileName, shape_lsc, nband=1)
 
@@ -2891,7 +2894,7 @@ def Get_epsg(g, extension = 'tiff'):
     return(epsg_to)
 
 #------------------------------------------------------------------------------
-def Open_constant_or_spatial_map(worksheet, CellID, Output_filename, Example_file, resampling_method = 3):
+def Open_constant_or_spatial_map(worksheet, CellID, Output_filename, Example_file, resampling_method = 3, remove_zeros = 0):
 
     # Open data, first try to open as value, otherwise as string (path)
     try:
@@ -2904,6 +2907,10 @@ def Open_constant_or_spatial_map(worksheet, CellID, Output_filename, Example_fil
 
         try:
             Constant_or_Map = Reshape_Reproject_Input_data(Map_file_name, Output_filename, Example_file, resampling_method)
+            
+            if remove_zeros == 1:
+                Constant_or_Map[Constant_or_Map==0] = np.nan
+            
         except:
             print('ERROR: One of the INPUTS is NOT CORRECT')
 

@@ -11,12 +11,12 @@ Change line 21 and 22 to define the input and output files and change the
 region in line 92 and run the code
 """
 
-from satpy import Scene
+from satpy.scene import Scene
 import glob
 import os 
 
-os.chdir(r"C:\Users\timhe\Documents\WaterSat\VIIRStest")
-filenames = glob.glob("*d20170101_t1922563_e1928367_b26849_*")
+os.chdir(r"C:\Users\timhe\Documents\VIIRStest")
+filenames = glob.glob("GIMGO-SVI05_npp_d20190910_t1038162_e1043566_b40776_c20190912092651273026_noac_ops*")
 
 global_scene = Scene(reader="viirs_sdr", filenames=filenames)
 nebraska_scene = global_scene.resample('nebraska', resampler = 'nearest')
@@ -28,8 +28,31 @@ from satpy import MultiScene
 mscn = MultiScene(global_scene)
 mscn.load(['I05'])
 
-my_area = mscn['I05'].attrs['area'].compute_optimal_bb_area({'proj': 'lcc', 'lon_0': -95., 'lat_0': 25., 'lat_1': 25., 'lat_2': 25.})
-new_scn = mscn.resample(my_area)
+my_area = global_scene['I05'].load().attrs['area'].compute_optimal_bb_area({'proj': 'lcc', 'lon_0': -95., 'lat_0': 25., 'lat_1': 25., 'lat_2': 25.})
+new_scn = global_scene.resample(my_area)
+new_scn.save_dataset(10.5)
+
+
+global_scene['I05'].area
+global_scene.load(['I05'])
+
+rs_scn = global_scene.resample("euro4")
+rs_scn.save_dataset(10.5)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 from pyresample.geometry import AreaDefinition

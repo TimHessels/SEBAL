@@ -168,7 +168,7 @@ def main(number, inputExcel):
     # ------------------------------------------------------------------------
     # ---   Extract general info from Landsat or VIIRS metadata: DOY, hour, minutes
 
-    if Image_Type is 1:
+    if Image_Type == 1:
 
         year, DOY, hour_GTM, minutes_GTM, UTM_Zone, Sun_elevation, Landsat_nr = input_LS.Get_Time_Info(wb, number)
 
@@ -189,7 +189,7 @@ def main(number, inputExcel):
         # Open the Landsat_Input sheet
         ws = wb['Landsat_Input']
 
-    if Image_Type is 2:
+    if Image_Type == 2:
 
         year, DOY, hour_GTM, minutes_GTM, UTM_Zone = input_PROBAV_VIIRS.Get_Time_Info(wb, number)
 
@@ -209,7 +209,7 @@ def main(number, inputExcel):
         # Open the VIIRS_PROBAV_Input sheet
         ws = wb['VIIRS_PROBAV_Input']
 
-    if Image_Type is 3:
+    if Image_Type == 3:
 
         year, DOY, UTM_Zone = input_MODIS.Get_Time_Info(wb, number)
 
@@ -229,7 +229,7 @@ def main(number, inputExcel):
         # Open the MODIS_Input sheet
         ws = wb['MODIS_Input']
 
-    if Image_Type is 4:
+    if Image_Type == 4:
         
         year, DOY, hour_GTM, minutes_GTM, UTM_Zone = input_USER.Get_Time_Info(wb, number)
 
@@ -685,10 +685,10 @@ def main(number, inputExcel):
     print('---------------------------------------------------------')
 
     # Perform Thermal sharpening for the thermal band
-    if Thermal_Sharpening_not_needed is 1:
+    if Thermal_Sharpening_not_needed == 1:
         temp_surface_sharpened = Surface_temp
 
-    if Thermal_Sharpening_not_needed is 0:
+    if Thermal_Sharpening_not_needed == 0:
 
         # Create mask for thermal sharpening
         Total_mask_thermal = QC_Map + cloud_mask_temp + water_mask_temp
@@ -2462,13 +2462,13 @@ def reproject_dataset_example(dataset, dataset_example, method = 1):
     dest1.SetProjection(osng.ExportToWkt())
 
     # Perform the projection/resampling
-    if method is 1:
+    if method == 1:
         gdal.ReprojectImage(g_in, dest1, wgs84.ExportToWkt(), osng.ExportToWkt(), gdal.GRA_NearestNeighbour)
-    if method is 2:
+    if method == 2:
         gdal.ReprojectImage(g_in, dest1, wgs84.ExportToWkt(), osng.ExportToWkt(), gdal.GRA_Bilinear)
-    if method is 3:
+    if method == 3:
         gdal.ReprojectImage(g_in, dest1, wgs84.ExportToWkt(), osng.ExportToWkt(), gdal.GRA_Lanczos)
-    if method is 4:
+    if method == 4:
         gdal.ReprojectImage(g_in, dest1, wgs84.ExportToWkt(), osng.ExportToWkt(), gdal.GRA_Average)
         
     return(dest1, ulx, lry, lrx, uly, epsg_to)
@@ -2912,7 +2912,8 @@ def Open_constant_or_spatial_map(worksheet, CellID, Output_filename, Example_fil
                 Constant_or_Map[Constant_or_Map==0] = np.nan
             
         except:
-            print('ERROR: One of the INPUTS is NOT CORRECT')
+            if os.path.basename(Output_filename) != 'QC_temp_input.tif':
+                print('ERROR: One of the INPUTS is NOT CORRECT')
 
     return(Constant_or_Map, Map_file_name)
 

@@ -11,8 +11,8 @@ import watertools.General.data_conversions as DC
 import numpy as np
 import pandas as pd
 
-Startdate ="2017-01-19"
-Enddate ="2017-01-21"
+Startdate ="2017-01-01"
+Enddate ="2017-21-21"
 Temp_folder = r"K:\Project_Jain\Weather_Data\Model\GLDAS\three_hourly\tair_f_inst\Tair_GLDAS-NOAH_C_3hour_{yyyy}.{mm:02d}.{dd:02d}_4.tif"
 Pres_folder = r"K:\Project_Jain\Weather_Data\Model\GLDAS\three_hourly\psurf_f_inst\P_GLDAS-NOAH_kpa_3hour_{yyyy}.{mm:02d}.{dd:02d}_4.tif"
 Hum_folder = r"K:\Project_Jain\Weather_Data\Model\GLDAS\three_hourly\qair_f_inst\Hum_GLDAS-NOAH_kg-kg_3hour_{yyyy}.{mm:02d}.{dd:02d}_4.tif"

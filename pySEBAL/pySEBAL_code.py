@@ -1590,7 +1590,7 @@ def Correct_Surface_Temp_Lapse_Rate(ts_corr, DEM_resh, NDVI, slope, water_mask, 
         DEMspace = round((DEMmax - DEMmin)/100)
         
         # Define steps for temperature
-        DEM_spaces = np.linspace(DEMmin, DEMmax, DEMspace)        
+        DEM_spaces = np.linspace(int(DEMmin), int(DEMmax), int(DEMspace))     
         
         if len(DEM_spaces)>1:
 

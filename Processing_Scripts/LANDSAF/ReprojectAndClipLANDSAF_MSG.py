@@ -21,9 +21,9 @@ import SEBAL.pySEBAL.pySEBAL_code as SEBAL
 
 
 # User parameters
-latlim = [31, 33]
-lonlim = [34, 36] 
-input_folder = r"K:\Project_Jain\Radiation2" 
+latlim = [14, 15]
+lonlim = [-18, -16] 
+input_folder = r"H:\Project_VanOers\LANDSAF_DATA" 
 
 # Get some general data
 temp_folder = os.path.join(input_folder, 'Temporary')

@@ -233,13 +233,19 @@ def main(number, inputExcel):
         
         year, DOY, hour_GTM, minutes_GTM, UTM_Zone = input_USER.Get_Time_Info(wb, number)
 
+        # Find pixel space
+        ws = wb['Additional_Input']
+        try:
+            pixel_spacing = int(ws['J%d' %number].value) 
+        except:
+            pixel_spacing = int(1)
+
         # define the kind of sensor and resolution of the sensor
-        pixel_spacing = int(30)
         sensor1 = 'User'
         sensor2 = 'User'
-        res1 = '10m'
-        res2 = '10m'
-        res3 = '10m'
+        res1 = '%sm' %pixel_spacing
+        res2 = '%sm' %pixel_spacing
+        res3 = '%sm' %pixel_spacing
 
         # Print data used from sheet General_Input
         print('MODIS model Input:')
@@ -1977,7 +1983,6 @@ def Calc_Ra_Mountain(lon,DOY,hour_loc,minutes_loc,lon_proy,lat_proy,slope,aspect
     """
 
     # Constants
-    deg2rad = np.pi / 180.0  # Factor to transform from degree to rad
     Min_cos_zn = 0.1  # Min value for cos zenith angle
     Max_cos_zn = 1.0  # Max value for cos zenith angle
     Gsc = 1367        # Solar constant (W / m2)
@@ -2001,10 +2006,10 @@ def Calc_Ra_Mountain(lon,DOY,hour_loc,minutes_loc,lon_proy,lat_proy,slope,aspect
     B = 360./365 * (DOY-81)           # (degrees)
     # Computation of cos(theta), where theta is the solar incidence angle
     # relative to the normal to the land surface
-    delta=np.arcsin(np.sin(23.45*deg2rad)*np.sin(np.deg2rad(B))) # Declination angle (radians)
-    phi = lat_proy * deg2rad                                     # latitude of the pixel (radians)
-    s = slope * deg2rad                                          # Surface slope (radians)
-    gamma = (aspect-180) * deg2rad                               # Surface aspect angle (radians)
+    delta=np.arcsin(np.sin(np.deg2rad(23.45))*np.sin(np.deg2rad(B))) # Declination angle (radians)
+    phi = np.deg2rad(lat_proy)                                  # latitude of the pixel (radians)
+    s = np.deg2rad(slope)                                   # Surface slope (radians)
+    gamma = np.deg2rad(aspect-180)                             # Surface aspect angle (radians)
     w=w_time(GMT_time, lon_proy, DOY)                            # Hour angle (radians)
     a,b,c = Constants(delta,s,gamma,phi)
     cos_zn= AngleSlope(a,b,c,w)
@@ -2012,7 +2017,7 @@ def Calc_Ra_Mountain(lon,DOY,hour_loc,minutes_loc,lon_proy,lat_proy,slope,aspect
 
     print('Average Cos Zenith Angle: ', '%0.3f (Radians)' % np.nanmean(cos_zn))
 
-    dr = 1 + 0.033 * cos(DOY*2*pi/365)  # Inverse relative distance Earth-Sun
+    dr = 1 + 0.033 * cos(DOY*2*np.pi/365)  # Inverse relative distance Earth-Sun
     # Instant. extraterrestrial solar radiation (W/m2), Allen et al.(2006):
     Ra_inst = Gsc * cos_zn * dr
 
@@ -2527,8 +2532,7 @@ def w_time(GMT,lon_proy, DOY):
     TC = 4 * (lon_proy - LSTM) + EoT     # Difference in time over the longitude
     LST = GMT + delta_GTM + TC/60         # Local solar time (hours)
     HRA = 15 * (LST-12)                  # Hour angle HRA (degrees)
-    deg2rad = np.pi / 180.0              # Factor to transform from degree to rad
-    w = HRA * deg2rad                    # Hour angle HRA (radians)
+    w = np.deg2rad(HRA)                  # Hour angle HRA (radians)
     return w
 
 #------------------------------------------------------------------------------

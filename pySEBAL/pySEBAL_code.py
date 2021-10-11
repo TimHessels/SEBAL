@@ -1130,6 +1130,8 @@ def main(number, inputExcel):
     save_GeoTiff_proy(lsc, Biomass_deficit, Biomass_deficit_fileName,shape_lsc, nband=1)
     lsc=None
 
+    sys.stdout.close()
+
     print('...................................................................')
     print('............................DONE!..................................')
     print('...................................................................')

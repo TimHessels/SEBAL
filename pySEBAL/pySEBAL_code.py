@@ -238,7 +238,7 @@ def main(number, inputExcel):
         try:
             pixel_spacing = int(ws['J%d' %number].value) 
         except:
-            pixel_spacing = int(1)
+            pixel_spacing = int(10)
 
         # define the kind of sensor and resolution of the sensor
         sensor1 = 'User'

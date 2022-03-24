@@ -4,7 +4,7 @@ WaterSat
 author: Tim Martijn Hessels
 Created on Thu Apr  4 12:27:04 2019
 """
-import gdal
+from osgeo import gdal
 import os
 import numpy as np
 import datetime

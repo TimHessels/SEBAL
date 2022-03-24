@@ -7,7 +7,7 @@ test
 import time
 import os
 import re
-import gdal
+from osgeo import gdal
 import numpy as np
 
 def Get_Time_Info(workbook, number):
@@ -62,7 +62,7 @@ def Get_LS_Para_Veg(workbook, number, Example_fileName, year, month, day, path_r
         # Define bands used for each Landsat number
         if Landsat_nr == 5 or Landsat_nr == 7:
             Bands = np.array([1, 2, 3, 4, 5, 7, 6])
-        elif Landsat_nr == 8:
+        elif Landsat_nr == 8 or Landsat_nr == 9:
            Bands = np.array([2, 3, 4, 5, 6, 7, 10, 11])
         else:
             print('Landsat image not supported, use Landsat 7 or 8')
@@ -131,7 +131,7 @@ def Get_LS_Para_Veg(workbook, number, Example_fileName, year, month, day, path_r
             QC_Map=np.where(np.logical_or.reduce((ls_data==0,ls_data_2==0,ls_data_3==0,ls_data_4==0,ls_data_5==0,ls_data_6==0,ls_data_7==0)),1,0)
 
         # If landsat 8 then use landsat band 10 and 11
-        elif Landsat_nr == 8:
+        elif Landsat_nr == 8 or Landsat_nr == 9:
              src_FileName_11 = os.path.join(input_folder, '%s_B11.TIF' % (Name_Landsat_Image)) #open smallest band
              ls_data_11=Open_landsat(src_FileName_11,Example_fileName)
 
@@ -262,7 +262,7 @@ def Get_LS_Para_Thermal(workbook, number, Example_fileName, year, month, day, wa
     # Define bands used for each Landsat number
     if Landsat_nr == 5 or Landsat_nr == 7:
         Bands = np.array([1, 2, 3, 4, 5, 7, 6])
-    elif Landsat_nr == 8:
+    elif Landsat_nr == 8 or Landsat_nr == 9:
         Bands = np.array([2, 3, 4, 5, 6, 7, 10, 11])
     else:
         print('Landsat image not supported, use Landsat 7 or 8')
@@ -286,7 +286,7 @@ def Get_LS_Para_Thermal(workbook, number, Example_fileName, year, month, day, wa
         # Define bands used for each Landsat number
         if Landsat_nr == 5 or Landsat_nr == 7:
             Bands = np.array([1, 2, 3, 4, 5, 7, 6])
-        elif Landsat_nr == 8:
+        elif Landsat_nr == 8 or Landsat_nr == 9:
            Bands = np.array([2, 3, 4, 5, 6, 7, 10, 11])
         else:
             print('Landsat image not supported, use Landsat 7 or 8')
@@ -298,17 +298,38 @@ def Get_LS_Para_Thermal(workbook, number, Example_fileName, year, month, day, wa
 
         # Create Cloud mask if BQA map is available (newer version Landsat images)
         BQA_LS_Available = 0
-        if os.path.exists(os.path.join(input_folder, '%s_BQA.TIF' %Name_Landsat_Image)):
+        try:
             src_FileName_BQA = os.path.join(input_folder, '%s_BQA.TIF' %Name_Landsat_Image)
+            if os.path.exists(src_FileName_BQA):
+                collection = 1
+             
+            src_FileName_BQA = os.path.join(input_folder, '%s_QA_PIXEL.TIF' % (Name_Landsat_Image))
+            if os.path.exists(src_FileName_BQA):
+                print("LS Collection 2 is found")
+                collection = 2
+            
             ls_data_BQA = Open_landsat(src_FileName_BQA, Example_fileName)
-            if Landsat_nr == 8:
-                Cloud_Treshold = 2780
-            if Landsat_nr == 5 or Landsat_nr == 7:
-                Cloud_Treshold = 700
-            QC_mask_Cloud = np.copy(ls_data_BQA)
-            QC_mask_Cloud[ls_data_BQA<Cloud_Treshold] = 0
-            QC_mask_Cloud[ls_data_BQA>=Cloud_Treshold] = 1
+            ls_data_BQA = np.where(ls_data_BQA==0, 1, ls_data_BQA)
+                
+            # Cloud Thresholds LS
+            if collection == 1:
+                if Landsat_nr == 8:
+                    Cloud_Treshold = np.array([1,2,2722,2720,2724,2728,2732])
+                if Landsat_nr == 5 or Landsat_nr == 7:
+                    Cloud_Treshold = np.array([1,672,676,680,684])
+                
+            if collection == 2:
+                if Landsat_nr == 8 or Landsat_nr == 9:
+                    Cloud_Treshold = np.array([1, 21824, 21890, 21952, 22080, 23826])   # 2720 =21824, 2724=23826
+                if Landsat_nr == 5 or Landsat_nr == 7:
+                    Cloud_Treshold = np.array([1,5440, 5442, 5504, 5696]) # 672 =5440                  
+        
+            print("create cloud array")     
+            QC_mask_Cloud = np.where(np.isin(ls_data_BQA, Cloud_Treshold), 0, 1)        
             BQA_LS_Available = 1
+              
+        except:
+            print('Was not able to use BQA map Landsat')
 
         # Calculate surface temperature and create a cloud mask
         Surface_temp, cloud_mask_temp = SEBAL.Calc_surface_water_temp(Temp_inst, Landsat_nr, Lmax, Lmin, therm_data, b10_emissivity, k1_c, k2_c, eact_inst, shape_lsc, water_mask_temp, Bands_thermal, Rp, tau_sky, surf_temp_offset, Image_Type)
@@ -399,7 +420,7 @@ def Landsat_Reflect(Bands,input_folder,Name_Landsat_Image,output_folder,shape_ls
         # stats = band_data.GetStatistics(0, 1)
 
         index = np.where(Bands[:-(len(Bands)-6)] == band)[0][0]
-        if Landsat_nr == 8:
+        if Landsat_nr == 8 or Landsat_nr == 9:
             # Spectral radiance for each band:
             L_lambda = Landsat_L_lambda(Lmin, Lmax, ls_data, index, Landsat_nr)
             # Reflectivity for each band:
@@ -428,7 +449,7 @@ def Landsat_L_lambda(Lmin,Lmax,ls_data,index,Landsat_nr):
     """
     Calculates the lambda from landsat
     """
-    if Landsat_nr==8:
+    if Landsat_nr==8 or Landsat_nr == 9:
         L_lambda = ((Lmax[index] - Lmin[index]) / (65535 - 1) * ls_data + Lmin[index])
     elif Landsat_nr == 5 or Landsat_nr ==7:
         L_lambda = (Lmax[index] - Lmin[index]) / 255 * ls_data + Lmin[index]

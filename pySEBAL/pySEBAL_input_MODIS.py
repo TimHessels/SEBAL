@@ -5,8 +5,7 @@ Created on Thu Jun 21 14:27:54 2018
 @author: tih
 """
 import os
-import gdal
-import osr
+from osgeo import gdal, osr
 import numpy as np
 
 def Get_Time_Info(workbook, number):

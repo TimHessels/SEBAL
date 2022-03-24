@@ -11,12 +11,17 @@ import watertools.General.data_conversions as DC
 import numpy as np
 import pandas as pd
 
-Startdate ="2017-01-01"
-Enddate ="2017-21-21"
-Temp_folder = r"K:\Project_Jain\Weather_Data\Model\GLDAS\three_hourly\tair_f_inst\Tair_GLDAS-NOAH_C_3hour_{yyyy}.{mm:02d}.{dd:02d}_4.tif"
-Pres_folder = r"K:\Project_Jain\Weather_Data\Model\GLDAS\three_hourly\psurf_f_inst\P_GLDAS-NOAH_kpa_3hour_{yyyy}.{mm:02d}.{dd:02d}_4.tif"
-Hum_folder = r"K:\Project_Jain\Weather_Data\Model\GLDAS\three_hourly\qair_f_inst\Hum_GLDAS-NOAH_kg-kg_3hour_{yyyy}.{mm:02d}.{dd:02d}_4.tif"
-out_folder = r"K:\Project_Jain\Weather_Data\Model\GLDAS\three_hourly\relative_humidity_inst\Humidity_GLDAS-NOAH_Percentage_3hour_{yyyy}.{mm:02d}.{dd:02d}_4.tif"
+Startdate ="2020-09-29"
+Enddate ="2021-10-31"
+# Temp_folder = r"K:\Project_Jain\Weather_Data\Model\GLDAS\three_hourly\tair_f_inst\Tair_GLDAS-NOAH_C_3hour_{yyyy}.{mm:02d}.{dd:02d}_4.tif"
+# Pres_folder = r"K:\Project_Jain\Weather_Data\Model\GLDAS\three_hourly\psurf_f_inst\P_GLDAS-NOAH_kpa_3hour_{yyyy}.{mm:02d}.{dd:02d}_4.tif"
+# Hum_folder = r"K:\Project_Jain\Weather_Data\Model\GLDAS\three_hourly\qair_f_inst\Hum_GLDAS-NOAH_kg-kg_3hour_{yyyy}.{mm:02d}.{dd:02d}_4.tif"
+# out_folder = r"K:\Project_Jain\Weather_Data\Model\GLDAS\three_hourly\relative_humidity_inst\Humidity_GLDAS-NOAH_Percentage_3hour_{yyyy}.{mm:02d}.{dd:02d}_4.tif"
+
+Temp_format = r"D:\Project_WAKAS\Input_Data\MERRA\Air_Temperature\daily_MERRA2\t2m_MERRA_K_daily_{yyyy}.{mm:02d}.{dd:02d}.tif"
+P_format = r"D:\Project_WAKAS\Input_Data\MERRA\Surface_Pressure\daily_MERRA2\ps_MERRA_kpa_daily_{yyyy}.{mm:02d}.{dd:02d}.tif"
+Hum_format = r"D:\Project_WAKAS\Input_Data\MERRA\Specific_Humidity\daily_MERRA2\q2m_MERRA_kg-kg-1_daily_{yyyy}.{mm:02d}.{dd:02d}.tif"
+output_format = r"D:\Project_WAKAS\Input_Data\MERRA\relative_humidity\Humidity_MERRA_kg-kg-1_daily_{yyyy}.{mm:02d}.{dd:02d}.tif"
 
 
 
@@ -43,10 +48,13 @@ def Calc_Humidity(Temp_format, P_format, Hum_format, output_format, Startdate, E
         Tempfile_one = Temp_format.format(yyyy = Year, mm = Month, dd = Day)
         Presfile_one = P_format.format(yyyy = Year, mm = Month, dd = Day)
         Humfile_one = Hum_format.format(yyyy = Year, mm = Month, dd = Day)
-        out_folder_one = out_folder.format(yyyy = Year, mm = Month, dd = Day)
+        out_folder_one = output_format.format(yyyy = Year, mm = Month, dd = Day)
     
         geo_out, proj, size_X, size_Y = RC.Open_array_info(Tempfile_one)
         Tdata = RC.Open_tiff_array(Tempfile_one)
+        if "MERRA_K" in Temp_format:
+            Tdata = Tdata - 273.15
+        
         Tdata[Tdata<-900]=-9999
         Pdata = RC.Open_tiff_array(Presfile_one)
         Hdata = RC.Open_tiff_array(Humfile_one)

@@ -8,9 +8,8 @@ import sys
 import os
 import shutil
 import numpy as np
-import osr
 import pandas as pd
-import gdal
+from osgeo import gdal, osr
 from math import sin, cos, pi, tan
 import subprocess
 import numpy.polynomial.polynomial as poly
@@ -455,6 +454,10 @@ def main(number, inputExcel):
     # 6a) Instantanious Temperature
     Output_filename_temp_inst = os.path.join(output_folder, 'Output_radiation_balance', 'Temp_inst_input.tif')
     Temp_inst, Temp_inst_source = Open_constant_or_spatial_map(ws, "B%d" %number, Output_filename_temp_inst, proyDEM_fileName)
+    if np.nanmean(Temp_inst)>200:
+        Temp_inst = Temp_inst - 273.15
+        print('Convert Temparature Inst into Celcius')
+    
     print('_____________________Instantanious Temperature______________________')
     print('Source of instantanious temperature = %s' %str(Temp_inst_source))
     print('Average instantanious temperature = %s Celcius\n' %float(np.nanmean(Temp_inst)))
@@ -462,6 +465,10 @@ def main(number, inputExcel):
     # 6b) Daily Temperature
     Output_filename_temp_24 = os.path.join(output_folder, 'Output_radiation_balance', 'Temp_24_input.tif')
     Temp_24, Temp_24_source = Open_constant_or_spatial_map(ws, "C%d" %number, Output_filename_temp_24, proyDEM_fileName)
+    if np.nanmean(Temp_24)>200:
+        Temp_24 = Temp_24 - 273.15
+        print('Convert Temparature Inst into Celcius')    
+    
     print('__________________________Daily Temperature_________________________')
     print('Source of 24H temperature = %s' %str(Temp_24_source))
     print('Average 24H temperature = %s Celcius\n' %float(np.nanmean(Temp_24)))
@@ -1789,7 +1796,7 @@ def Calc_surface_water_temp(Temp_inst,Landsat_nr,Lmax,Lmin,therm_data,b10_emissi
     """
 
     # Spectral radiance for termal
-    if Landsat_nr == 8:
+    if Landsat_nr == 8 or Landsat_nr == 9:
         if Bands_thermal == 1:
             k1 = k1_c[0]
             k2 = k2_c[0]
@@ -2863,10 +2870,12 @@ def Get_epsg(g, extension = 'tiff'):
     try:
         if extension == 'tiff':
             # Get info of the dataset that is used for transforming
-            try:
-                dest = gdal.Open(g)
-            except:
+            if str(type(g)) ==  "<class 'osgeo.gdal.Dataset'>":
                 dest = g
+                
+            else:
+                dest = gdal.Open(g)
+                
             g_proj = dest.GetProjection()
             Projection=g_proj.split('EPSG","')
             epsg_to=int((str(Projection[-1]).split(']')[0])[0:-1])

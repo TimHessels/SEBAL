@@ -8,10 +8,10 @@ Created on Thu Jun 21 14:26:35 2018
 import time
 import os
 import re
-import gdal
+from osgeo import gdal, osr
 import numpy as np
 import datetime
-import osr
+
 
 def Get_Time_Info(workbook, number):
 

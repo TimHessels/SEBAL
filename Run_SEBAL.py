@@ -7,10 +7,9 @@ Created on Tue May 03 13:12:18 2016
 
 import SEBAL
 
-inputExcel =  r"C:\Users\timhe\Downloads\Excel_SEBAL_SJ.xlsx"
+inputExcel =  r"D:\Project_WAKAS\Input_Data\SEBAL\Excel_SEBAL_v3_4_4.xlsx"
 
-for number in range(2,3):
+for number in range(3,13):
     SEBAL.pySEBAL.pySEBAL_code.main(number,inputExcel)
-
 
 

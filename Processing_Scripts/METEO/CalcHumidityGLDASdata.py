@@ -58,7 +58,6 @@ def Calc_Humidity(Temp_format, P_format, Hum_format, output_format, Startdate, E
         Tdata[Tdata<-900]=-9999
         Pdata = RC.Open_tiff_array(Presfile_one)
         Hdata = RC.Open_tiff_array(Humfile_one)
-        Pdata = Pdata * 10 # kpa to mbar
         Pdata[Pdata<0]=-9999
         Hdata[Hdata<0]=-9999
         
@@ -67,7 +66,7 @@ def Calc_Humidity(Temp_format, P_format, Hum_format, output_format, Startdate, E
         Pdata = RC.gap_filling(Pdata,-9999)
         Hdata = RC.gap_filling(Hdata,-9999)
     
-        Esdata = 0.6108*np.exp((17.27*Tdata)/(Tdata+237.3))
+        Esdata = 0.6108*np.exp((17.27*Tdata)/(Tdata+237.3)) #kpa
         HumData = np.minimum((1.6077717*Hdata*Pdata/Esdata),1)*100
         HumData = HumData.clip(0,100)
                         

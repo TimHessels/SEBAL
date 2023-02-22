@@ -191,7 +191,6 @@ for Date in Dates:
     Tdata[Tdata<-900]=-9999
     Pdata = Open_tiff_array(Presfile_one)
     Hdata = Open_tiff_array(Humfile_one)
-    Pdata = Pdata * 10 # kpa to mbar
     Pdata[Pdata<0]=-9999
     Hdata[Hdata<0]=-9999
     

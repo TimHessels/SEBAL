@@ -58,6 +58,7 @@ def Calc_Humidity(Temp_format, P_format, Hum_format, output_format, Startdate, E
         Tdata[Tdata<-900]=-9999
         Pdata = RC.Open_tiff_array(Presfile_one)
         Hdata = RC.Open_tiff_array(Humfile_one)
+        Pdata = Pdata * 10 # kpa to mbar
         Pdata[Pdata<0]=-9999
         Hdata[Hdata<0]=-9999
         

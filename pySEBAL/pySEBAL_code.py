@@ -1137,11 +1137,11 @@ def main(number, inputExcel):
     save_GeoTiff_proy(lsc, Biomass_deficit, Biomass_deficit_fileName,shape_lsc, nband=1)
     lsc=None
 
-    sys.stdout.close()
-
     print('...................................................................')
     print('............................DONE!..................................')
     print('...................................................................')
+
+    sys.stdout.close()
 
     # ------------------------------------------------------------------------
     # ------------------------------------------------------------------------
@@ -1937,7 +1937,7 @@ def Calc_albedo(Reflect,path_radiance,Apparent_atmosf_transm, LS_number = 7):
                        0.103 * Reflect[:, :, 4] + 0.036 * Reflect[:, :, 5] -
                        path_radiance) / np.power(Apparent_atmosf_transm, 2)
 
-    if LS_number == 8:
+    if (LS_number == 8 or LS_number == 9):
         # Surface albedo:
         Surf_albedo = (0.3 * Reflect[:, :, 0] + 0.277 * Reflect[:, :, 1] +
                        0.233 * Reflect[:, :, 2] + 0.143 * Reflect[:, :, 3] +

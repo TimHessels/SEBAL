@@ -501,6 +501,7 @@ def Open_landsat(src_FileName, proyDEM_fileName):
 
     # Open the cropped Landsat image for the band number
     ls_data = ls.GetRasterBand(1).ReadAsArray()
+    del ls
     return(ls_data)
 
 #------------------------------------------------------------------------------
